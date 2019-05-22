@@ -1,0 +1,39 @@
+name: fun-vm
+version: 0.0.0.0
+github: "nahiluhmot/fun-vm"
+license: BSD3
+author: "Tom Hulihan"
+maintainer: "hulihan.tom159@gmail.com"
+copyright: "2019 Tom Hulihan"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+synopsis: Function VM
+category: Language
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description: Please see the README on GitHub at <https://github.com/nahiluhmot/fun-vm#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- containers >= 0.6 && < 1
+- text >= 1.2 && < 2
+
+library:
+  source-dirs: src
+
+executables:
+  fun-vm:
+    main: Main.hs
+    source-dirs: app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - fun-vm
