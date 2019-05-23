@@ -2,15 +2,15 @@ module Language.VirtualMachine.Data.Instruction ( Instruction(..)
                                                 ) where
 
 data Instruction arg
-  = Nop
+  = Syscall arg
   | Push arg
-  | Pop
-  | Module arg
   | Lookup arg
-  | Set arg
-  | Def arg
-  | Syscall arg
   | Funcall arg
+  | Set arg
   | Return
-  | Recur arg
   | BranchIf arg
+  | Recur arg
+  | Def arg
+  | Module arg
+  | Pop
+  | Nop
