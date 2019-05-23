@@ -1,5 +1,5 @@
-module Language.VirtualMachine.Value ( ValueF(..)
-                                     ) where
+module Language.VirtualMachine.Data.Value ( ValueF(..)
+                                          ) where
 
 data ValueF sym int float str func vec intMap ref
   = Nil

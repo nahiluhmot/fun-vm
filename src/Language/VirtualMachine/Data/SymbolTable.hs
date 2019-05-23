@@ -1,10 +1,10 @@
-module Language.VirtualMachine.SymbolTable ( SymbolTable
-                                           , empty
-                                           , size
-                                           , toSymbol
-                                           , fromSymbol
-                                           , garbageCollect
-                                           ) where
+module Language.VirtualMachine.Data.SymbolTable ( SymbolTable
+                                                , empty
+                                                , size
+                                                , toSymbol
+                                                , fromSymbol
+                                                , garbageCollect
+                                                ) where
 
 import qualified Data.IntSet as IS
 import qualified Data.IntMap.Strict as IM

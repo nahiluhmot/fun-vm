@@ -1,4 +1,5 @@
-module Language.VirtualMachine.Instruction where
+module Language.VirtualMachine.Data.Instruction ( Instruction(..)
+                                                ) where
 
 data Instruction arg
   = Nop
