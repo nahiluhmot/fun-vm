@@ -18,7 +18,7 @@ data SymbolTable a = SymbolTable { _idToSym :: (IM.IntMap a)
                                  } deriving (Eq, Show)
 
 empty :: SymbolTable a
-empty = SymbolTable IM.empty M.empty minBound 0
+empty = SymbolTable IM.empty M.empty 0 0
 
 size :: SymbolTable a -> Int
 size (SymbolTable _ _ _ len) = len
