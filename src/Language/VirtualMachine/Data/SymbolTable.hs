@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 module Language.VirtualMachine.Data.SymbolTable ( SymbolTable
                                                 , empty
                                                 , size
@@ -5,6 +7,8 @@ module Language.VirtualMachine.Data.SymbolTable ( SymbolTable
                                                 , fromSymbol
                                                 , garbageCollect
                                                 ) where
+
+import GHC.Exts (IsList(..))
 
 import qualified Data.IntSet as IS
 import qualified Data.IntMap.Strict as IM
@@ -21,7 +25,7 @@ empty :: SymbolTable a
 empty = SymbolTable IM.empty M.empty 0 0
 
 size :: SymbolTable a -> Int
-size (SymbolTable _ _ _ len) = len
+size = _len
 
 toSymbol :: Ord a => a -> SymbolTable a -> (Int, SymbolTable a)
 toSymbol val table@(SymbolTable symToVal valToSym nextSym len) =
@@ -34,7 +38,7 @@ toSymbol val table@(SymbolTable symToVal valToSym nextSym len) =
   in  fromMaybe new existing
 
 fromSymbol :: Int -> SymbolTable a -> (Maybe a)
-fromSymbol sym (SymbolTable symToVal _ _ _) = IM.lookup sym symToVal
+fromSymbol sym = IM.lookup sym . _idToSym
 
 garbageCollect :: IS.IntSet -> SymbolTable a -> SymbolTable a
 garbageCollect symbols (SymbolTable symToVal valToSym _ _) =
@@ -43,3 +47,15 @@ garbageCollect symbols (SymbolTable symToVal valToSym _ _) =
       nextSym' = succ $ IS.findMax symbols
       len' = IM.size symToVal'
   in  SymbolTable symToVal' valToSym' nextSym' len'
+
+instance Ord a => IsList (SymbolTable a) where
+  type Item (SymbolTable a) = (Int, a)
+
+  fromList xs =
+    let idToSym = IM.fromList xs
+        symToID = foldr (uncurry $ flip M.insert) M.empty xs
+        nextSym = succ . fst $ IM.findMax idToSym
+        len = IM.size idToSym
+    in  SymbolTable idToSym symToID nextSym len
+
+  toList = IM.toList . _idToSym
