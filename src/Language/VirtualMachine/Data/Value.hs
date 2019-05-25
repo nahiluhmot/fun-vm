@@ -1,10 +1,8 @@
-{-# LANGUAGE TypeFamilies #-}
-
-module Language.VirtualMachine.Data.Value ( ValueF(..)
-                                          , FunctionF(..)
+module Language.VirtualMachine.Data.Value ( Value(..)
+                                          , Function(..)
                                           ) where
 
-data ValueF sym int float str func vec intMap ref
+data Value sym int float str func vec intMap ref
   = Nil
   | Sym sym
   | Int int
@@ -15,7 +13,7 @@ data ValueF sym int float str func vec intMap ref
   | Map (intMap ref)
   deriving (Eq, Show)
 
-instance (Functor vec, Functor intMap) => Functor (ValueF sym int float str func vec intMap) where
+instance (Functor vec, Functor intMap) => Functor (Value sym int float str func vec intMap) where
   fmap f =
     let go Nil = Nil
         go (Sym s) = Sym s
@@ -27,8 +25,7 @@ instance (Functor vec, Functor intMap) => Functor (ValueF sym int float str func
         go (Map refs) = Map $ fmap f refs
     in  go
 
-data FunctionF sym vec insn
-  = FunctionF { fnInsns :: vec insn
-              , fnArgs :: vec sym
-              , fnExtraArg :: Maybe sym
+data Function args body
+  = FunctionF { fnArgs :: args
+              , fnBody :: body
               } deriving (Eq, Show)
