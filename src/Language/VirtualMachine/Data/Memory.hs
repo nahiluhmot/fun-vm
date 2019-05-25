@@ -2,30 +2,24 @@ module Language.VirtualMachine.Data.Memory ( MemoryConfig(..)
                                            , MemoryState(..)
                                            ) where
 
-import Data.Text (Text)
-import Data.IntMap (IntMap)
+data MemoryConfig int float
+  = MemoryConfig { memNurserySize :: int
 
-import Language.VirtualMachine.Data.SymbolTable (SymbolTable)
-import Language.VirtualMachine.Data.Value (Value)
+                 , memHeapStartGC :: int
+                 , memHeapGCGrowthFactor :: float
+                 , memHeapGCMaxGrowth :: int
 
-data MemoryConfig
-  = MemoryConfig { memNurserySize :: Int
-
-                 , memHeapStartGC :: Int
-                 , memHeapGCGrowthFactor :: Rational
-                 , memHeapGCMaxGrowth :: Int
-
-                 , memSymbolTableStartGC :: Int
-                 , memSymbolTableGCGrowthFactor :: Rational
-                 , memSymbolTableGCMaxGrowth :: Int
+                 , memSymbolTableStartGC :: int
+                 , memSymbolTableGCGrowthFactor :: float
+                 , memSymbolTableGCMaxGrowth :: int
 
                  } deriving (Eq, Show)
 
-data MemoryState
-  = MemoryState { memNursery :: IntMap Value
-                , memHeap :: IntMap Value
-                , memSymbolTable :: SymbolTable Text
-                , memGeneration :: Int
-                , memNextNurseryKey :: Int
-                , memNextHeapGC :: Int
+data MemoryState int text intMap symbolTable value
+  = MemoryState { memNursery :: intMap value
+                , memHeap :: intMap value
+                , memSymbolTable :: symbolTable text
+                , memGeneration :: int
+                , memNextNurseryKey :: int
+                , memNextHeapGC :: int
                 } deriving (Eq, Show)

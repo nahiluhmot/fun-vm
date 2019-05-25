@@ -1,20 +1,8 @@
-module Language.VirtualMachine.Data.Value ( Value
-                                          , ValueF(..)
-                                          , Function
+{-# LANGUAGE TypeFamilies #-}
+
+module Language.VirtualMachine.Data.Value ( ValueF(..)
                                           , FunctionF(..)
                                           ) where
-
-import Data.Sequence (Seq)
-import Data.Text (Text)
-import Data.IntMap (IntMap)
-
-import Language.VirtualMachine.Data.Instruction (Instruction)
-
-type Value
-  = ValueF Int Int Double Text Function Seq IntMap Int
-
-type Function
-  = FunctionF Int Seq Instruction Int
 
 data ValueF sym int float str func vec intMap ref
   = Nil
@@ -39,9 +27,8 @@ instance (Functor vec, Functor intMap) => Functor (ValueF sym int float str func
         go (Map refs) = Map $ fmap f refs
     in  go
 
-data FunctionF int vec insn ref
+data FunctionF sym vec insn
   = FunctionF { fnInsns :: vec insn
-              , fnArgIDs :: vec int
-              , fnExtraArgID :: Maybe int
-              , fnSource :: ref
+              , fnArgs :: vec sym
+              , fnExtraArg :: Maybe sym
               } deriving (Eq, Show)
