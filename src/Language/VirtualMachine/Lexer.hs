@@ -1,6 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Rank2Types #-}
 
 module Language.VirtualMachine.Lexer ( runLexer
@@ -27,13 +26,13 @@ type LexStream s = Stream s Identity Char
 type Lexer a = forall s. LexStream s => ParsecT s () Identity a
 type LexToken = Tok TokOp (TokLit Text Rational Text)
 
-runLexer :: LexStream s => SourceName -> s -> Either ParseError [LexToken]
+runLexer :: LexStream s => SourceName -> s -> Either ParseError [(SourcePos, LexToken)]
 runLexer =
   runParser (toks <* eof) ()
 
-toks :: Lexer [LexToken]
+toks :: Lexer [(SourcePos, LexToken)]
 toks =
-  spaces *> sepEndBy tok spaces
+  spaces *> sepEndBy ((,) <$> getPosition <*> tok) spaces
 
 tok :: Lexer LexToken
 tok =
