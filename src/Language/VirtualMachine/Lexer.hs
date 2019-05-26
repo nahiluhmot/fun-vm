@@ -5,8 +5,6 @@
 
 module Language.VirtualMachine.Lexer ( runLexer
                                      , LexStream
-                                     , SourceName
-                                     , ParseError
                                      , LexToken
                                      , Tok(..)
                                      , TokOp(..)
