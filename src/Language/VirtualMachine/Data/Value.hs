@@ -26,6 +26,6 @@ instance (Functor vec, Functor intMap) => Functor (Value sym int float str func 
     in  go
 
 data Function args body
-  = FunctionF { fnArgs :: args
-              , fnBody :: body
-              } deriving (Eq, Show)
+  = Function { fnArgs :: args
+             , fnBody :: body
+             } deriving (Eq, Show)
