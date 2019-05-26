@@ -1,6 +1,10 @@
 module Main where
 
-import Language.VirtualMachine ()
+import System.IO (stdin)
+
+import Data.Text.IO (hGetContents)
+
+import Language.VirtualMachine (runLexer)
 
 main :: IO ()
-main = return ()
+main = runLexer "*stdin*" <$> hGetContents stdin >>= print

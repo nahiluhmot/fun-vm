@@ -29,19 +29,21 @@ type Lexer s = ParsecT s () Identity
 type LexToken = Tok TokOp (TokLit Text Rational Text)
 
 runLexer :: LexStream s => SourceName -> s -> Either ParseError [LexToken]
-runLexer = runParser (toks <* eof) ()
+runLexer =
+  runParser (toks <* eof) ()
 
 toks :: LexStream s => Lexer s [LexToken]
-toks = spaces *> sepBy tok spaces <* spaces
+toks =
+  spaces *> sepEndBy tok spaces
 
 tok :: LexStream s => Lexer s LexToken
 tok =
   let lit = TokSym . pack <$> tokSym
         <|> TokStr . pack <$> tokStr
         <|> TokNum <$> try tokNum
-      op = tokStringOp <|> tokCharOp
+      op = tokStringOp
+       <|> tokCharOp
   in  TokLit <$> lit <|> TokOp <$> op
-
 
 tokNum :: (Fractional num, LexStream s) => Lexer s num
 tokNum =
@@ -60,10 +62,12 @@ tokSym =
 
 tokStr :: LexStream s => Lexer s String
 tokStr =
-  let parseUnescaped = (++) <$> many (noneOf "\"\\")
-                            <*> ((char '"' $> "") <|>
-                                 ((++) <$> parseEscaped <*> parseUnescaped))
-      parseEscaped = char '\\' *> satisfyMaybe (flip lookup charToEscapeCode)
+  let parseUnescaped =
+        (++) <$> many (noneOf "\"\\")
+             <*> ((char '"' $> "") <|> ((++) <$> parseEscaped <*> parseUnescaped))
+      parseEscaped =
+        char '\\' *>
+        (satisfyMaybe (flip lookup charToEscapeCode) <|> fmap (\c -> '\\' : c : []) anyChar)
   in  char '"' *> parseUnescaped <?> "string"
 
 tokStringOp :: LexStream s => Lexer s TokOp
@@ -91,9 +95,10 @@ charToEscapeCode =
            , ('b', "\b")
            , ('f', "\f")
            , ('n', "\n")
-           , ('n', "\r")
+           , ('r', "\r")
            , ('t', "\t")
            , ('v', "\v")
+           , ('\\', "\\")
            ]
 
 stringToOp :: Map String TokOp
