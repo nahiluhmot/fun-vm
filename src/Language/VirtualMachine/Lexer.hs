@@ -133,6 +133,7 @@ charToOp =
              , ('>', TokGt)
              , (':', TokColon)
              , (';', TokSemiColon)
+             , ('?', TokQuestionMark)
              ]
 
 data Tok op lit
@@ -169,6 +170,7 @@ data TokOp
   | TokRange
   | TokSpread
   | TokSemiColon
+  | TokQuestionMark
   deriving (Eq, Show)
 
 data TokLit sym num str
