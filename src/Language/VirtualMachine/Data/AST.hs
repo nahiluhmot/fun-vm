@@ -1,5 +1,4 @@
 module Language.VirtualMachine.Data.AST ( TopLevel(..)
-                                        , FnStmt(..)
                                         , Stmt(..)
                                         , LitExpr(..)
                                         , Expr(..)
@@ -18,10 +17,6 @@ data Stmt sym expr stmt
   | StmtAssign sym expr
   | StmtIf expr [stmt] [stmt]
 
-data FnStmt expr stmt
-  = FnStmt stmt
-  | FnStmtRecur [expr]
-
 newtype LitExpr expr lit
   = LitExpr { runLitExpr :: Fix (expr (lit (LitExpr expr lit))) }
 
@@ -29,6 +24,6 @@ data Expr sym lit expr
   = ExprLit lit
   | ExprVar sym
   | ExprFuncall expr [expr]
-  | ExprIndex expr [expr]
+  | ExprIndex expr expr
   | ExprTernary expr expr expr
   | ExprDebugger
