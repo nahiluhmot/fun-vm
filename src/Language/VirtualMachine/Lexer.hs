@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE Rank2Types #-}
 
 module Language.VirtualMachine.Lexer ( runLexer
                                      , LexStream
@@ -25,18 +26,18 @@ import Text.Parsec
 import Text.Parsec.Pos (updatePosChar)
 
 type LexStream s = Stream s Identity Char
-type Lexer s = ParsecT s () Identity
+type Lexer a = forall s. LexStream s => ParsecT s () Identity a
 type LexToken = Tok TokOp (TokLit Text Rational Text)
 
 runLexer :: LexStream s => SourceName -> s -> Either ParseError [LexToken]
 runLexer =
   runParser (toks <* eof) ()
 
-toks :: LexStream s => Lexer s [LexToken]
+toks :: Lexer [LexToken]
 toks =
   spaces *> sepEndBy tok spaces
 
-tok :: LexStream s => Lexer s LexToken
+tok :: Lexer LexToken
 tok =
   let lit = TokSym . pack <$> tokSym
         <|> TokStr . pack <$> tokStr
@@ -45,7 +46,7 @@ tok =
        <|> tokCharOp
   in  TokLit <$> lit <|> TokOp <$> op
 
-tokNum :: (Fractional num, LexStream s) => Lexer s num
+tokNum :: Fractional num => Lexer num
 tokNum =
   let sign = option id (char '-' $> negate)
       beforeDecimal = foldl decimalShiftUp 0 . map fromIntegral <$> digits
@@ -55,12 +56,12 @@ tokNum =
       num = sign <*> ((+) <$> beforeDecimal <*> afterDecimal) <?> "number"
   in  num
 
-tokSym :: LexStream s => Lexer s String
+tokSym :: Lexer String
 tokSym =
   (:) <$> (letter <|> char '_')
       <*> many (alphaNum <|> char '_')
 
-tokStr :: LexStream s => Lexer s String
+tokStr :: Lexer String
 tokStr =
   let parseUnescaped =
         (++) <$> many (noneOf "\"\\")
@@ -70,21 +71,21 @@ tokStr =
         (satisfyMaybe (flip lookup charToEscapeCode) <|> fmap (\c -> '\\' : c : []) anyChar)
   in  char '"' *> parseUnescaped <?> "string"
 
-tokStringOp :: LexStream s => Lexer s TokOp
+tokStringOp :: Lexer TokOp
 tokStringOp =
   let tryOp op t acc =
         try ((string op $> t) <?> "operator: " ++ op) <|> acc
   in  foldrWithKey tryOp parserZero stringToOp
 
-tokCharOp :: LexStream s => Lexer s TokOp
+tokCharOp :: Lexer TokOp
 tokCharOp =
   satisfyMaybe (flip lookup charToOp) <?> "single character operator"
 
-digits :: LexStream s => Lexer s [Int]
+digits :: Lexer [Int]
 digits =
   map digitToInt <$> many1 digit
 
-satisfyMaybe :: LexStream s => (Char -> Maybe a) -> Lexer s a
+satisfyMaybe :: (Char -> Maybe a) -> Lexer a
 satisfyMaybe =
   tokenPrim (\c -> show [c])
             (\pos c _cs -> updatePosChar pos c)
