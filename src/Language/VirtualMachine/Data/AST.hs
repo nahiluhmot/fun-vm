@@ -7,8 +7,7 @@ module Language.VirtualMachine.Data.AST ( TopLevel(..)
 import Language.VirtualMachine.Data.Fix (Fix)
 
 data TopLevel sym str expr stmt
-  = TopLevelModule sym
-  | TopLevelImport sym str
+  = TopLevelImport sym str
   | TopLevelDef sym expr
   | TopLevelStmt stmt
 
