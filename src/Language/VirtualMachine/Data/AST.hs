@@ -29,3 +29,10 @@ data Expr sym op lit expr
   | ExprNot expr
   | ExprBinOp expr op expr
   | ExprDebugger
+
+instance Functor (Stmt sym expr) where
+  fmap f =
+    let go (StmtExpr expr) = StmtExpr expr
+        go (StmtAssign sym expr) = StmtAssign sym expr
+        go (StmtIf cond andThen orElse) = StmtIf cond (map f andThen) (map f orElse)
+    in  go

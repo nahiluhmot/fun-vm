@@ -33,11 +33,16 @@ type ParseStream s = Stream s Identity ParseInput
 type Parser a = forall s. ParseStream s => ParsecT s () Identity a
 
 type ParseTopLevel = TopLevel Text Text ParseExpr ParseStmt
-type ParseStmt = Fix (Stmt Text ParseExpr)
 type ParseExpr = LitExpr (Expr Text TokBinOp) ParseLit
 type ParseLit = Value Text Integer Rational Text ParseFunction [] ParseMap
-newtype ParseFunction = ParseFunction { runParseFunction :: Function [Text] [ParseStmt] }
+type ParseFunction =  Function [Text] [ParseStmt]
+type ParseStmt = Fix ParseStmtF
+newtype ParseStmtF a = ParseStmtF { runParseStmtF :: (SourcePos, Stmt Text ParseExpr a) }
 newtype ParseMap a = ParseMap { runParseMap :: [(ParseExpr, a)] }
+
+instance Functor ParseStmtF where
+  fmap f (ParseStmtF (pos, s)) =
+    ParseStmtF (pos, fmap f s)
 
 runParser :: ParseStream s => SourceName -> s -> Either ParseError [ParseTopLevel]
 runParser =
@@ -60,16 +65,24 @@ topLevelDef =
       <*> (expr <* specialOp TokSemiColon)
 
 stmt :: Parser ParseStmt
-stmt = Fix . uncurry StmtAssign <$> stmtAssign
-   <|> Fix . uncurry3 StmtIf <$> stmtIf
-   <|> Fix . StmtExpr <$> stmtExpr
+stmt =
+  let stmtWithoutPos :: Parser (Stmt Text ParseExpr ParseStmt)
+      stmtWithoutPos = (uncurry StmtAssign <$> stmtAssign)
+                   <|> (StmtExpr <$> stmtExpr)
+                   <|> (uncurry3 StmtIf <$> stmtIf)
+  in  stmtWithPos stmtWithoutPos
+
+stmtWithPos :: Parser (Stmt Text ParseExpr ParseStmt) -> Parser ParseStmt
+stmtWithPos action =
+  let wrap pos a = Fix (ParseStmtF (pos, a))
+  in  wrap <$> getPosition <*> action
 
 stmtIf :: Parser (ParseExpr, [ParseStmt], [ParseStmt])
 stmtIf =
   let cond = symEq "if" *> expr
       andThen = groupOp TokOpenBracket *> many stmt <* groupOp TokCloseBracket
       orElse = symEq "else" *> andThen
-      elseIf = symEq "else" *> fmap (return . Fix . uncurry3 StmtIf) stmtIf
+      elseIf = symEq "else" *> fmap return (stmtWithPos $ fmap (uncurry3 StmtIf) stmtIf)
   in  tup3 <$> cond <*> andThen <*> (try orElse <|> elseIf <|> pure [])
 
 stmtAssign :: Parser (Text, ParseExpr)
@@ -147,10 +160,10 @@ litFunction =
   let args = singleArg <|> multipleArgs
       singleArg = fmap (\x -> [x]) litUnreservedSymbol
       multipleArgs = list TokOpenParen TokCloseParen TokComma litUnreservedSymbol
-      body = exprBody <|> stmtBody
-      exprBody =  fmap (\x -> [Fix $ StmtExpr x]) expr
+      body = stmtBody <|> exprBody
+      exprBody = undefined
       stmtBody = between (groupOp TokOpenBracket) (groupOp TokCloseBracket) (many stmt)
-  in  ParseFunction <$> (Function <$> args <*> body)
+  in  Function <$> args <*> body
 
 litMap :: Parser [(ParseExpr, ParseExpr)]
 litMap =
@@ -254,15 +267,6 @@ list :: TokGroupOp
             -> Parser [a]
 list begin end sep ele =
   op (TokGroupOp begin) *> sepBy ele (op (TokSpecialOp sep)) <* op (TokGroupOp end)
-
-satisfy :: (Show a, Stream s m (SourcePos, a))
-        => (a -> Bool)
-        -> ParsecT s u m a
-satisfy f =
-  let test a
-        | f a = Just a
-        | otherwise = Nothing
-  in  satisfyMaybe test
 
 satisfyMaybe :: (Show a, Stream s m (SourcePos, a))
              => (a -> Maybe b)
