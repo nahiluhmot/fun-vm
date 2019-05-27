@@ -1,19 +1,24 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Rank2Types #-}
 
 module Language.VirtualMachine.Parser ( ParseInput
                                       , ParseStream
                                       , ParseTopLevel
+                                      , ParseImport
+                                      , ParseDef
                                       , ParseStmt
+                                      , ParseStmtF(..)
                                       , ParseExpr
                                       , ParseLit
                                       , ParseFunction
-                                      , ParseMap
+                                      , ParseMap(..)
                                       , runParser
                                       ) where
 
+import Data.List (intercalate)
 import Data.Functor.Identity (Identity)
 
 import Data.Functor (($>))
@@ -24,8 +29,8 @@ import Text.Parsec.Prim hiding (runParser)
 import qualified Text.Parsec.Prim as P
 
 import Language.VirtualMachine.Data.AST (TopLevel(..), Stmt(..), Expr(..), LitExpr(..))
-import Language.VirtualMachine.Data.Fix (Fix(..))
-import Language.VirtualMachine.Data.Value (Value(..), Function(..))
+import Language.VirtualMachine.Data.Fix (Fix(..), cata)
+import Language.VirtualMachine.Data.Value (Value(..))
 import Language.VirtualMachine.Lexer (LexToken, LexOp, Tok(..), TokOp(..), TokLit(..), TokGroupOp(..), TokBinOp(..), TokSpecialOp(..))
 
 type ParseInput = (SourcePos, LexToken)
@@ -33,18 +38,17 @@ type ParseStream s = Stream s Identity ParseInput
 type Parser a = forall s. ParseStream s => ParsecT s () Identity a
 
 type ParseTopLevel = TopLevel ParseImport ParseDef ParseStmt
+-- pos, var, file
 type ParseImport = (SourcePos, Text, Text)
+-- pos, var, expression
 type ParseDef = (SourcePos, Text, ParseExpr)
+type ParseStmt = Fix ParseStmtF
+newtype ParseStmtF a = ParseStmtF { runParseStmtF :: (SourcePos, Stmt Text ParseExpr a) } deriving (Show)
 type ParseExpr = LitExpr (Expr Text TokBinOp) ParseLit
 type ParseLit = Value Text Integer Rational Text ParseFunction [] ParseMap
-type ParseFunction =  Function [Text] [ParseStmt]
-type ParseStmt = Fix ParseStmtF
-newtype ParseStmtF a = ParseStmtF { runParseStmtF :: (SourcePos, Stmt Text ParseExpr a) }
-newtype ParseMap a = ParseMap { runParseMap :: [(ParseExpr, a)] }
-
-instance Functor ParseStmtF where
-  fmap f (ParseStmtF (pos, s)) =
-    ParseStmtF (pos, fmap f s)
+-- args, body
+type ParseFunction = ([Text], [ParseStmt])
+newtype ParseMap a = ParseMap { runParseMap :: [(ParseExpr, a)] } deriving (Show)
 
 runParser :: ParseStream s => SourceName -> s -> Either ParseError [ParseTopLevel]
 runParser =
@@ -167,7 +171,7 @@ litFunction =
       body = stmtBody <|> exprBody
       exprBody = undefined
       stmtBody = between (groupOp TokOpenBracket) (groupOp TokCloseBracket) (many stmt)
-  in  Function <$> args <*> body
+  in  (,) <$> args <*> body
 
 litMap :: Parser [(ParseExpr, ParseExpr)]
 litMap =
@@ -282,6 +286,7 @@ satisfyMaybe f =
 reservedWords :: [Text]
 reservedWords =
   [ "def"
+  , "debugger"
   , "else"
   , "from"
   , "if"
@@ -295,3 +300,41 @@ tup3 a b c = (a, b, c)
 
 uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
 uncurry3 f (a, b, c) = f a b c
+
+instance Functor ParseStmtF where
+  fmap f (ParseStmtF (pos, s)) =
+    ParseStmtF (pos, fmap f s)
+
+instance Functor ParseMap where
+  fmap f =
+    ParseMap . map (fmap f) . runParseMap
+
+instance Show (Fix ParseStmtF) where
+  show =
+    let phi :: Stmt Text ParseExpr String -> [String]
+        phi (StmtExpr e) = ["StmtExpr", parens (show e)]
+        phi (StmtAssign s e) = ["StmtAssign", show s, parens (show e)]
+        phi (StmtIf cond andThen orElse) = ["StmtIf"
+                                           , parens (show cond)
+                                           , parens . joinSpace $ map parens andThen
+                                           , parens . joinSpace $ map parens orElse]
+    in  cata (joinSpace . phi . snd . runParseStmtF)
+
+instance Show (LitExpr (Expr Text TokBinOp) ParseLit) where
+  show =
+    let phi (ExprLit lit) = ["ExprLit", show lit]
+        phi (ExprVar var) = ["ExprVar", show var]
+        phi (ExprFuncall f args) = "ExprFuncall" : parens f : map parens args
+        phi (ExprIndex xs idx) = ["ExprIndex", parens xs, parens idx]
+        phi (ExprTernary cond andThen orElse) = ["ExprTernary", parens cond, parens andThen, parens orElse]
+        phi (ExprParen e) = ["ExprParen", parens e]
+        phi (ExprNot e) = ["ExprNot", parens e]
+        phi (ExprBinOp e o e') = ["ExprBinOp", parens e, show o, parens e']
+        phi ExprDebugger = ["ExprDebugger"]
+    in  cata (joinSpace . phi) . runLitExpr
+
+parens :: String -> String
+parens x = '(' : x ++ ")"
+
+joinSpace :: [String] -> String
+joinSpace = intercalate " "
