@@ -4,7 +4,14 @@ import System.IO (stdin)
 
 import Data.Text.IO (hGetContents)
 
-import Language.VirtualMachine (runLexer)
+import Language.VirtualMachine (runLexer, runParser)
 
 main :: IO ()
-main = runLexer "*stdin*" <$> hGetContents stdin >>= print
+main = do
+  text <- hGetContents stdin
+
+  let sourceName = "*stdin*"
+      lexed = runLexer sourceName text
+
+  print lexed
+  print (lexed >>= runParser sourceName)

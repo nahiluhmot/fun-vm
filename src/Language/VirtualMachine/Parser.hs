@@ -18,10 +18,12 @@ module Language.VirtualMachine.Parser ( ParseInput
                                       , runParser
                                       ) where
 
+import Control.Monad (when)
 import Data.List (intercalate)
 import Data.Functor.Identity (Identity)
 
 import Data.Functor (($>))
+import qualified Data.Set as S
 import Data.Text (Text)
 import Text.Parsec (ParseError, SourceName, SourcePos)
 import Text.Parsec.Combinator
@@ -35,7 +37,16 @@ import Language.VirtualMachine.Lexer (LexToken, LexOp, Tok(..), TokOp(..), TokLi
 
 type ParseInput = (SourcePos, LexToken)
 type ParseStream s = Stream s Identity ParseInput
-type Parser a = forall s. ParseStream s => ParsecT s () Identity a
+type Parser a = forall s. ParseStream s => ParsecT s ParserState Identity a
+-- For detecting recursive expressions
+type ParserState = S.Set (SourcePos, RecExpr)
+data RecExpr
+  = RecFuncall
+  | RecIndex
+  | RecTernary
+  | RecParen
+  | RecBinOp
+  deriving (Eq, Ord, Enum, Show)
 
 type ParseTopLevel = TopLevel ParseImport ParseDef ParseStmt
 -- pos, var, file
@@ -52,7 +63,7 @@ newtype ParseMap a = ParseMap { runParseMap :: [(ParseExpr, a)] } deriving (Show
 
 runParser :: ParseStream s => SourceName -> s -> Either ParseError [ParseTopLevel]
 runParser =
-  P.runParser topLevel ()
+  P.runParser (topLevel <* eof) S.empty
 
 topLevel :: Parser [ParseTopLevel]
 topLevel =
@@ -65,19 +76,21 @@ topLevelImport =
   tup3 <$> getPosition
        <*> (symEq "import" *> litUnreservedSymbol <* symEq "from")
        <*> (litString <* specialOp TokSemiColon)
+       <?> "import"
 
 topLevelDef :: Parser (SourcePos, Text, ParseExpr)
 topLevelDef =
   tup3 <$> getPosition
        <*> (symEq "def" *> litUnreservedSymbol)
        <*> (expr <* specialOp TokSemiColon)
+       <?> "definition"
 
 stmt :: Parser ParseStmt
 stmt =
   let stmtWithoutPos :: Parser (Stmt Text ParseExpr ParseStmt)
-      stmtWithoutPos = (uncurry StmtAssign <$> stmtAssign)
-                   <|> (StmtExpr <$> stmtExpr)
-                   <|> (uncurry3 StmtIf <$> stmtIf)
+      stmtWithoutPos = fmap (uncurry StmtAssign) stmtAssign
+                   <|> fmap (uncurry3 StmtIf) stmtIf
+                   <|> fmap StmtExpr stmtExpr
   in  stmtWithPos stmtWithoutPos
 
 stmtWithPos :: Parser (Stmt Text ParseExpr ParseStmt) -> Parser ParseStmt
@@ -91,12 +104,12 @@ stmtIf =
       andThen = groupOp TokOpenBracket *> many stmt <* groupOp TokCloseBracket
       orElse = symEq "else" *> andThen
       elseIf = symEq "else" *> fmap return (stmtWithPos $ fmap (uncurry3 StmtIf) stmtIf)
-  in  tup3 <$> cond <*> andThen <*> (try orElse <|> elseIf <|> pure [])
+  in  tup3 <$> cond <*> andThen <*> (try orElse <|> elseIf <|> pure []) <?> "if statement"
 
 stmtAssign :: Parser (Text, ParseExpr)
 stmtAssign =
   (,) <$> (symEq "let" *> litUnreservedSymbol <* specialOp TokAssign)
-      <*> (expr <* specialOp TokSemiColon)
+      <*> (expr <* specialOp TokSemiColon) <?> "assignment"
 
 stmtExpr :: Parser ParseExpr
 stmtExpr =
@@ -104,39 +117,71 @@ stmtExpr =
 
 expr :: Parser ParseExpr
 expr =
-  let wrap = LitExpr . Fix
-      unwrap = runLitExpr
+  let unwrap = runLitExpr
       unwrap2 (a, b) = (unwrap a, unwrap b)
       unwrap3 (a, b, c) = (unwrap a, unwrap b, unwrap c)
       unwrapFuncall (f, args) = (unwrap f, map unwrap args)
       unwrapBinOp (left, binOp, right) = (unwrap left, binOp, unwrap right)
-  in  wrap . uncurry ExprFuncall . unwrapFuncall <$> try exprFuncall
-  <|> wrap . uncurry ExprIndex . unwrap2 <$> try exprIndex
-  <|> wrap . uncurry3 ExprTernary . unwrap3 <$> try exprTernary
-  <|> wrap ExprDebugger <$ exprDebugger
-  <|> wrap . ExprVar <$> litUnreservedSymbol
-  <|> wrap . ExprLit <$> exprLit
-  <|> wrap . ExprParen . unwrap <$> exprParen
-  <|> wrap . ExprNot . unwrap <$> exprNot
-  <|> wrap . uncurry3 ExprBinOp . unwrapBinOp <$> exprBinOp
+
+      parseFuncall =
+        recLock RecFuncall $ uncurry ExprFuncall . unwrapFuncall <$> exprFuncall
+      parseIndex =
+        recLock RecIndex $ uncurry ExprIndex . unwrap2 <$> exprIndex
+      parseTernary =
+        recLock RecTernary $ uncurry3 ExprTernary . unwrap3 <$> exprTernary
+      parseBinOp =
+        recLock RecBinOp $ uncurry3 ExprBinOp . unwrapBinOp <$> exprBinOp
+      parseParen =
+        ExprParen . unwrap <$> exprParen
+      parseNot =
+        ExprNot . unwrap <$> exprNot
+      parseVar =
+        ExprVar <$> litUnreservedSymbol
+      parseLit =
+        ExprLit <$> exprLit
+      parseDebugger =
+        ExprDebugger <$ exprDebugger
+
+      parseExpr = try parseFuncall
+              <|> parseNot
+              <|> try parseBinOp
+              <|> try parseTernary
+              <|> try parseIndex
+              <|> try parseLit
+              <|> parseDebugger
+              <|> parseParen
+              <|> parseVar
+
+  in  LitExpr . Fix <$> parseExpr
+
+recLock :: RecExpr -> Parser a -> Parser a
+recLock recExpr child = do
+  record@(_, pos) <- flip (,) recExpr <$> getPosition
+  forbidden <- getState
+
+  when (S.member record forbidden) $
+     parserFail ("Recursive usage of " ++ show recExpr ++ " at " ++ show pos)
+
+  putState (S.insert record forbidden) *> child <* putState forbidden
 
 exprParen :: Parser ParseExpr
 exprParen =
-  groupOp TokOpenParen *> expr <* groupOp TokCloseParen
+  groupOp TokOpenParen *> expr <* groupOp TokCloseParen <?> "parenthetical expression"
 
 exprBinOp :: Parser (ParseExpr, TokBinOp, ParseExpr)
 exprBinOp =
-  tup3 <$> expr <*> binOpAny <*> expr
+  tup3 <$> expr <*> binOpAny <*> expr <?> "binary operator"
 
 exprNot :: Parser ParseExpr
 exprNot =
-  specialOp TokNot *> expr
+  specialOp TokNot *> expr <?> "not operator"
 
 exprTernary :: Parser (ParseExpr, ParseExpr, ParseExpr)
 exprTernary =
   tup3 <$> (expr <* specialOp TokQuestionMark)
        <*> expr
        <*> (specialOp TokColon *> expr)
+       <?> "ternary operator"
 
 exprIndex :: Parser (ParseExpr, ParseExpr)
 exprIndex =
@@ -146,7 +191,7 @@ exprIndex =
 
 exprDebugger :: Parser ()
 exprDebugger =
-  symEq "debugger" $> ()
+  symEq "debugger" $> () <?> "a debugger"
 
 exprFuncall :: Parser (ParseExpr, [ParseExpr])
 exprFuncall =
@@ -169,9 +214,9 @@ litFunction =
       singleArg = fmap (\x -> [x]) litUnreservedSymbol
       multipleArgs = list TokOpenParen TokCloseParen TokComma litUnreservedSymbol
       body = stmtBody <|> exprBody
-      exprBody = undefined
+      exprBody = return <$> stmtWithPos (StmtExpr <$> expr)
       stmtBody = between (groupOp TokOpenBracket) (groupOp TokCloseBracket) (many stmt)
-  in  (,) <$> args <*> body
+  in  (,) <$> args <*> (specialOp TokArrow *> body)
 
 litMap :: Parser [(ParseExpr, ParseExpr)]
 litMap =
@@ -269,19 +314,18 @@ opMaybe f =
   in  satisfyMaybe test
 
 list :: TokGroupOp
-            -> TokGroupOp
-            -> TokSpecialOp
-            -> Parser a
-            -> Parser [a]
+     -> TokGroupOp
+     -> TokSpecialOp
+     -> Parser a
+     -> Parser [a]
 list begin end sep ele =
   op (TokGroupOp begin) *> sepBy ele (op (TokSpecialOp sep)) <* op (TokGroupOp end)
 
-satisfyMaybe :: (Show a, Stream s m (SourcePos, a))
+satisfyMaybe :: (Show a, Stream s Identity (SourcePos, a))
              => (a -> Maybe b)
-             -> ParsecT s u m b
+             -> ParsecT s u Identity b
 satisfyMaybe f =
-  let nextTok _pos (pos, _tok) _stream = pos
-  in  tokenPrim (show . snd) nextTok (f . snd)
+  token (show . snd) fst (f . snd)
 
 reservedWords :: [Text]
 reservedWords =
@@ -311,27 +355,29 @@ instance Functor ParseMap where
 
 instance Show (Fix ParseStmtF) where
   show =
-    let phi :: Stmt Text ParseExpr String -> [String]
-        phi (StmtExpr e) = ["StmtExpr", parens (show e)]
-        phi (StmtAssign s e) = ["StmtAssign", show s, parens (show e)]
-        phi (StmtIf cond andThen orElse) = ["StmtIf"
-                                           , parens (show cond)
-                                           , parens . joinSpace $ map parens andThen
-                                           , parens . joinSpace $ map parens orElse]
-    in  cata (joinSpace . phi . snd . runParseStmtF)
+    let phi pos (StmtExpr e) = ["StmtExpr", parens (show pos), show e]
+        phi pos (StmtAssign s e) = ["StmtAssign", parens (show pos), show s, show e]
+        phi pos (StmtIf cond andThen orElse) =
+          ["StmtIf"
+          , parens (show pos)
+          , show cond
+          , joinSpace andThen
+          , joinSpace orElse
+          ]
+    in  cata (parens . joinSpace . uncurry phi . runParseStmtF)
 
 instance Show (LitExpr (Expr Text TokBinOp) ParseLit) where
   show =
     let phi (ExprLit lit) = ["ExprLit", show lit]
         phi (ExprVar var) = ["ExprVar", show var]
-        phi (ExprFuncall f args) = "ExprFuncall" : parens f : map parens args
-        phi (ExprIndex xs idx) = ["ExprIndex", parens xs, parens idx]
-        phi (ExprTernary cond andThen orElse) = ["ExprTernary", parens cond, parens andThen, parens orElse]
-        phi (ExprParen e) = ["ExprParen", parens e]
-        phi (ExprNot e) = ["ExprNot", parens e]
-        phi (ExprBinOp e o e') = ["ExprBinOp", parens e, show o, parens e']
+        phi (ExprFuncall f args) = "ExprFuncall" : parens f : args
+        phi (ExprIndex xs idx) = ["ExprIndex", xs, idx]
+        phi (ExprTernary cond andThen orElse) = ["ExprTernary", cond, andThen, orElse]
+        phi (ExprParen e) = ["ExprParen", e]
+        phi (ExprNot e) = ["ExprNot", e]
+        phi (ExprBinOp e o e') = ["ExprBinOp", e, show o, e']
         phi ExprDebugger = ["ExprDebugger"]
-    in  cata (joinSpace . phi) . runLitExpr
+    in  cata (parens . joinSpace . phi) . runLitExpr
 
 parens :: String -> String
 parens x = '(' : x ++ ")"

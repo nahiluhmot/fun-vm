@@ -4,7 +4,7 @@ module Language.VirtualMachine.Data.AST ( TopLevel(..)
                                         , Expr(..)
                                         ) where
 
-import Language.VirtualMachine.Data.Fix (Fix, cata)
+import Language.VirtualMachine.Data.Fix (Fix)
 
 data TopLevel imp def stmt
   = TopLevelImport imp
@@ -50,5 +50,5 @@ instance Functor (Expr sym op lit) where
         go (ExprParen expr) = ExprParen (f expr)
         go (ExprNot expr) = ExprNot (f expr)
         go (ExprBinOp expr op expr') = ExprBinOp (f expr) op (f expr')
-        go ExprDebugger = ExprDebugger-
+        go ExprDebugger = ExprDebugger
     in  go
