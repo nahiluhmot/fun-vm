@@ -7,7 +7,11 @@ module Language.VirtualMachine.Lexer ( runLexer
                                      , LexToken
                                      , Tok(..)
                                      , TokOp(..)
+                                     , TokGroupOp(..)
+                                     , TokBinOp(..)
+                                     , TokSpecialOp(..)
                                      , TokLit(..)
+                                     , LexOp
                                      ) where
 
 import Prelude hiding (lookup)
@@ -24,7 +28,8 @@ import Text.Parsec.Pos (updatePosChar)
 
 type LexStream s = Stream s Identity Char
 type Lexer a = forall s. LexStream s => ParsecT s () Identity a
-type LexToken = Tok TokOp (TokLit Text Rational Text)
+type LexOp = TokOp TokGroupOp TokBinOp TokSpecialOp
+type LexToken = Tok LexOp (TokLit Text Rational Text)
 
 runLexer :: LexStream s => SourceName -> s -> Either ParseError [(SourcePos, LexToken)]
 runLexer =
@@ -68,13 +73,13 @@ tokStr =
         (satisfyMaybe (flip lookup charToEscapeCode) <|> fmap (\c -> '\\' : c : []) anyChar)
   in  char '"' *> parseUnescaped <?> "string"
 
-tokStringOp :: Lexer TokOp
+tokStringOp :: Lexer LexOp
 tokStringOp =
   let tryOp op t acc =
         try ((string op $> t) <?> "operator: " ++ op) <|> acc
   in  foldrWithKey tryOp parserZero stringToOp
 
-tokCharOp :: Lexer TokOp
+tokCharOp :: Lexer LexOp
 tokCharOp =
   satisfyMaybe (flip lookup charToOp) <?> "single character operator"
 
@@ -99,41 +104,41 @@ charToEscapeCode =
            , ('\\', "\\")
            ]
 
-stringToOp :: Map String TokOp
+stringToOp :: Map String LexOp
 stringToOp =
-  fromList [ ("==", TokEq)
-           , ("!=", TokNeq)
-           , (">=", TokGte)
-           , ("<=", TokLte)
-           , ("&&", TokAnd)
-           , ("||", TokOr)
-           , ("**", TokPow)
-           , ("=>", TokArrow)
-           , ("...", TokSpread)
-           , ("..", TokRange)
+  fromList [ ("==", TokBinOp TokEq)
+           , ("!=", TokBinOp TokNeq)
+           , (">=", TokBinOp TokGte)
+           , ("<=", TokBinOp TokLte)
+           , ("&&", TokBinOp TokAnd)
+           , ("||", TokBinOp TokOr)
+           , ("**", TokBinOp TokPow)
+           , ("=>", TokSpecialOp TokArrow)
+           , ("...", TokSpecialOp TokSpread)
+           , ("..", TokSpecialOp TokRange)
            ]
 
-charToOp :: Map Char TokOp
+charToOp :: Map Char LexOp
 charToOp =
-  fromList $ [ ('(', TokOpenParen)
-             , (')', TokCloseParen)
-             , ('[', TokOpenBrace)
-             , (']', TokCloseBrace)
-             , ('{', TokOpenBracket)
-             , ('}', TokCloseBracket)
-             , (',', TokComma)
-             , ('.', TokDot)
-             , ('!', TokNot)
-             , ('+', TokPlus)
-             , ('-', TokMinus)
-             , ('/', TokDiv)
-             , ('*', TokMul)
-             , ('=', TokAssign)
-             , ('<', TokLt)
-             , ('>', TokGt)
-             , (':', TokColon)
-             , (';', TokSemiColon)
-             , ('?', TokQuestionMark)
+  fromList $ [ ('(', TokGroupOp TokOpenParen)
+             , (')', TokGroupOp TokCloseParen)
+             , ('[', TokGroupOp TokOpenBrace)
+             , (']', TokGroupOp TokCloseBrace)
+             , ('{', TokGroupOp TokOpenBracket)
+             , ('}', TokGroupOp TokCloseBracket)
+             , ('+', TokBinOp TokPlus)
+             , ('-', TokBinOp TokMinus)
+             , ('/', TokBinOp TokDiv)
+             , ('*', TokBinOp TokMul)
+             , ('<', TokBinOp TokLt)
+             , ('>', TokBinOp TokGt)
+             , (',', TokSpecialOp TokComma)
+             , ('.', TokSpecialOp TokDot)
+             , ('!', TokSpecialOp TokNot)
+             , ('=', TokSpecialOp TokAssign)
+             , (':', TokSpecialOp TokColon)
+             , (';', TokSpecialOp TokSemiColon)
+             , ('?', TokSpecialOp TokQuestionMark)
              ]
 
 data Tok op lit
@@ -141,30 +146,43 @@ data Tok op lit
   | TokLit lit
   deriving (Eq, Show)
 
-data TokOp
+data TokOp group binary special
+  = TokGroupOp group
+  | TokBinOp binary
+  | TokSpecialOp special
+  deriving (Eq, Show)
+
+data TokGroupOp
   = TokOpenParen
   | TokCloseParen
   | TokOpenBrace
   | TokCloseBrace
   | TokOpenBracket
   | TokCloseBracket
-  | TokComma
-  | TokDot
-  | TokNot
-  | TokPlus
+  deriving (Eq, Ord, Enum, Show)
+
+-- Sorted in ascending order of precedence
+data TokBinOp
+  = TokPlus
   | TokMinus
   | TokDiv
   | TokMul
   | TokPow
   | TokAnd
   | TokOr
-  | TokColon
   | TokEq
   | TokNeq
   | TokGt
   | TokGte
   | TokLt
   | TokLte
+  deriving (Eq, Ord, Enum, Bounded, Show)
+
+data TokSpecialOp
+  = TokComma
+  | TokDot
+  | TokNot
+  | TokColon
   | TokAssign
   | TokArrow
   | TokRange
