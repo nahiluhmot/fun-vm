@@ -32,7 +32,9 @@ type ParseInput = (SourcePos, LexToken)
 type ParseStream s = Stream s Identity ParseInput
 type Parser a = forall s. ParseStream s => ParsecT s () Identity a
 
-type ParseTopLevel = TopLevel Text Text ParseExpr ParseStmt
+type ParseTopLevel = TopLevel ParseImport ParseDef ParseStmt
+type ParseImport = (SourcePos, Text, Text)
+type ParseDef = (SourcePos, Text, ParseExpr)
 type ParseExpr = LitExpr (Expr Text TokBinOp) ParseLit
 type ParseLit = Value Text Integer Rational Text ParseFunction [] ParseMap
 type ParseFunction =  Function [Text] [ParseStmt]
@@ -50,19 +52,21 @@ runParser =
 
 topLevel :: Parser [ParseTopLevel]
 topLevel =
-  (++) <$> many (uncurry TopLevelImport <$> topLevelImport)
-       <*> many (fmap (uncurry TopLevelDef) topLevelDef <|>
+  (++) <$> many (TopLevelImport <$> topLevelImport)
+       <*> many (fmap TopLevelDef topLevelDef <|>
                  fmap TopLevelStmt stmt)
 
-topLevelImport :: Parser (Text, Text)
+topLevelImport :: Parser (SourcePos, Text, Text)
 topLevelImport =
-  (,) <$> (symEq "import" *> litUnreservedSymbol <* symEq "from")
-      <*> (litString <* specialOp TokSemiColon)
+  tup3 <$> getPosition
+       <*> (symEq "import" *> litUnreservedSymbol <* symEq "from")
+       <*> (litString <* specialOp TokSemiColon)
 
-topLevelDef :: Parser (Text, ParseExpr)
+topLevelDef :: Parser (SourcePos, Text, ParseExpr)
 topLevelDef =
-  (,) <$> (symEq "def" *> litUnreservedSymbol)
-      <*> (expr <* specialOp TokSemiColon)
+  tup3 <$> getPosition
+       <*> (symEq "def" *> litUnreservedSymbol)
+       <*> (expr <* specialOp TokSemiColon)
 
 stmt :: Parser ParseStmt
 stmt =
