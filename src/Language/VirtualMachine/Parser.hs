@@ -117,24 +117,18 @@ stmtExpr =
 
 expr :: Parser ParseExpr
 expr =
-  let unwrap = runLitExpr
-      unwrap2 (a, b) = (unwrap a, unwrap b)
-      unwrap3 (a, b, c) = (unwrap a, unwrap b, unwrap c)
-      unwrapFuncall (f, args) = (unwrap f, map unwrap args)
-      unwrapBinOp (left, binOp, right) = (unwrap left, binOp, unwrap right)
-
-      parseFuncall =
-        recLock RecFuncall $ uncurry ExprFuncall . unwrapFuncall <$> exprFuncall
+  let parseFuncall =
+        recLock RecFuncall $ uncurry ExprFuncall <$> exprFuncall
       parseIndex =
-        recLock RecIndex $ uncurry ExprIndex . unwrap2 <$> exprIndex
+        recLock RecIndex $ uncurry ExprIndex <$> exprIndex
       parseTernary =
-        recLock RecTernary $ uncurry3 ExprTernary . unwrap3 <$> exprTernary
+        recLock RecTernary $ uncurry3 ExprTernary <$> exprTernary
       parseBinOp =
-        recLock RecBinOp $ uncurry3 ExprBinOp . unwrapBinOp <$> exprBinOp
+        recLock RecBinOp $ uncurry3 ExprBinOp <$> exprBinOp
       parseParen =
-        ExprParen . unwrap <$> exprParen
+        ExprParen <$> exprParen
       parseNot =
-        ExprNot . unwrap <$> exprNot
+        ExprNot <$> exprNot
       parseVar =
         ExprVar <$> litUnreservedSymbol
       parseLit =
@@ -152,7 +146,7 @@ expr =
               <|> parseParen
               <|> parseVar
 
-  in  LitExpr . Fix <$> parseExpr
+  in  LitExpr . Fix . fmap runLitExpr <$> parseExpr
 
 recLock :: RecExpr -> Parser a -> Parser a
 recLock recExpr child = do

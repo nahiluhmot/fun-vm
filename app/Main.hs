@@ -11,7 +11,7 @@ main = do
   text <- hGetContents stdin
 
   let sourceName = "*stdin*"
-      lexed = runLexer sourceName text
 
-  print lexed
-  print (lexed >>= runParser sourceName)
+  case runLexer sourceName text >>= runParser sourceName of
+    Left err -> print err
+    Right stmts -> mapM_ print stmts

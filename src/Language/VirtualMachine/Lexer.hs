@@ -37,7 +37,10 @@ runLexer =
 
 toks :: Lexer [(SourcePos, LexToken)]
 toks =
-  spaces *> sepEndBy ((,) <$> getPosition <*> tok) spaces
+  spaces *> sepEndBy ((,) <$> getPosition <*> tok) whitespace
+
+whitespace :: Lexer ()
+whitespace = spaces *> option () (char '#' *> manyTill anyChar (char '\n') *> spaces)
 
 tok :: Lexer LexToken
 tok =
