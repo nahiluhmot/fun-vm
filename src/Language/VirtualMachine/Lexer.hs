@@ -37,10 +37,12 @@ runLexer =
 
 toks :: Lexer [(SourcePos, LexToken)]
 toks =
-  spaces *> sepEndBy ((,) <$> getPosition <*> tok) whitespace
+  whitespace *> sepEndBy ((,) <$> getPosition <*> tok) whitespace
 
 whitespace :: Lexer ()
-whitespace = spaces *> option () (char '#' *> manyTill anyChar (char '\n') *> spaces)
+whitespace =
+  let commentLine = char '#' *> manyTill anyChar (char '\n') *> spaces
+  in  spaces <* optional (many commentLine)
 
 tok :: Lexer LexToken
 tok =
@@ -64,7 +66,7 @@ tokNum =
 tokSym :: Lexer String
 tokSym =
   (:) <$> (letter <|> char '_')
-      <*> many (alphaNum <|> char '_')
+      <*> many (alphaNum <|> char '_' <|> char '?')
 
 tokStr :: Lexer String
 tokStr =
