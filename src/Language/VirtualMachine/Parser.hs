@@ -44,7 +44,6 @@ data RecExpr
   = RecFuncall
   | RecIndex
   | RecTernary
-  | RecParen
   | RecBinOp
   deriving (Eq, Ord, Enum, Show)
 
@@ -83,7 +82,7 @@ topLevelDef =
   tup3 <$> getPosition
        <*> (symEq "def" *> litUnreservedSymbol)
        <*> (expr <* specialOp TokSemiColon)
-       <?> "definition"
+       <?> "def"
 
 stmt :: Parser ParseStmt
 stmt =
@@ -137,24 +136,24 @@ expr =
         ExprDebugger <$ exprDebugger
 
       parseExpr = try parseFuncall
-              <|> parseNot
+              <|> try parseIndex
               <|> try parseBinOp
               <|> try parseTernary
-              <|> try parseIndex
               <|> try parseLit
-              <|> parseDebugger
-              <|> parseParen
               <|> parseVar
+              <|> parseParen
+              <|> parseNot
+              <|> parseDebugger
 
   in  LitExpr . Fix . fmap runLitExpr <$> parseExpr
 
 recLock :: RecExpr -> Parser a -> Parser a
 recLock recExpr child = do
-  record@(_, pos) <- flip (,) recExpr <$> getPosition
+  record <- flip (,) recExpr <$> getPosition
   forbidden <- getState
 
   when (S.member record forbidden) $
-     parserFail ("Recursive usage of " ++ show recExpr ++ " at " ++ show pos)
+     parserFail ("Recursive usage of " ++ show recExpr)
 
   putState (S.insert record forbidden) *> child <* putState forbidden
 
