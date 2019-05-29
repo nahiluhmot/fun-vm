@@ -80,7 +80,6 @@ topLevelImport =
              <*> (rawString <* stmtEnd)
   in  TopLevelImport <$> triple <?> "import"
 
-
 topLevelDef :: Parser (TopLevel imp (SourcePos, Text, ParseExpr) stmt)
 topLevelDef =
   let triple =
@@ -174,7 +173,7 @@ exprIndex =
 
 exprDebugger :: Parser (Expr sym op lit expr)
 exprDebugger =
-  symEq "debugger" $> ExprDebugger <?> "a debugger"
+  symEq "debugger" $> ExprDebugger <?> "debugger"
 
 exprFuncall :: Parser (Expr sym op lit ParseExpr)
 exprFuncall =
@@ -207,7 +206,7 @@ litFunction =
       body = stmtBody <|> exprBody
       exprBody = return <$> stmtWithPos (StmtExpr <$> expr)
       stmtBody = between (groupOp TokOpenCurly) (groupOp TokCloseCurly) (many stmt)
-  in  Func <$> ((,) <$> args <*> (specialOp TokThinArrow *> body))
+  in  Func <$> ((,) <$> args <*> (specialOp TokThinArrow *> body)) <?> "function"
 
 litMap :: Parser (Value sym int float str func vec ParseMap ParseExpr)
 litMap =
@@ -236,7 +235,7 @@ litNum =
 
 litString :: Parser (Value sym int float Text func vec intMap ref)
 litString =
-  Str <$> rawString
+  Str <$> rawString <?> "string literal"
 
 litNil :: Parser (Value sym int float str func vec intMap ref)
 litNil =
