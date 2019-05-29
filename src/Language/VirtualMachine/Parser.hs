@@ -181,13 +181,17 @@ exprLit =
   ExprLit <$> lit
 
 lit :: Parser (ParseLit ParseExpr)
-lit = litNil
-  <|> litQuotedSymbol
-  <|> litString
-  <|> litNum
-  <|> litVec
-  <|> litMap
-  <|> litFunction
+lit =
+  let chooseLit (TokLit (TokSym "nil")) = litNil
+      chooseLit (TokOp (TokSpecialOp TokColon)) = litQuotedSymbol
+      chooseLit (TokLit (TokNum _)) = litNum
+      chooseLit (TokLit (TokStr _)) = litString
+      chooseLit (TokOp (TokGroupOp TokOpenBrace)) = litVec
+      chooseLit (TokOp (TokGroupOp TokOpenBracket)) = litMap
+      chooseLit (TokOp (TokGroupOp TokOpenParen)) = litFunction
+      chooseLit (TokLit (TokSym _)) = litFunction
+      chooseLit _ = parserZero
+  in  lookAhead anyToken >>= chooseLit . snd
 
 litFunction :: Parser (Value sym int float str ParseFunction vec intMap ref)
 litFunction =
