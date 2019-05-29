@@ -204,7 +204,7 @@ litFunction =
       body = stmtBody <|> exprBody
       exprBody = return <$> stmtWithPos (StmtExpr <$> expr)
       stmtBody = between (groupOp TokOpenCurly) (groupOp TokCloseCurly) (many stmt)
-  in  Func <$> ((,) <$> args <*> (specialOp TokArrow *> body))
+  in  Func <$> ((,) <$> args <*> (specialOp TokFatArrow *> body))
 
 litMap :: Parser (Value sym int float str func vec ParseMap ParseExpr)
 litMap =
@@ -213,7 +213,7 @@ litMap =
       keyLit :: Parser Text
       keyLit = (rawUnquotedSymbol <|> rawString) <* specialOp TokColon
       keyExpr :: Parser ParseExpr
-      keyExpr = expr <* specialOp TokArrow
+      keyExpr = expr <* specialOp TokFatArrow
       entries = list TokOpenCurly TokCloseCurly TokComma ((,) <$> key <*> expr) <?> "map literal"
   in  Map . ParseMap <$> entries
 

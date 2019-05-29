@@ -118,7 +118,7 @@ stringToOp =
            , ("&&", TokBinOp TokAnd)
            , ("||", TokBinOp TokOr)
            , ("**", TokBinOp TokPow)
-           , ("=>", TokSpecialOp TokArrow)
+           , ("=>", TokSpecialOp TokFatArrow)
            , ("...", TokSpecialOp TokSpread)
            , ("..", TokSpecialOp TokRange)
            ]
@@ -189,7 +189,7 @@ data TokSpecialOp
   | TokNot
   | TokColon
   | TokAssign
-  | TokArrow
+  | TokFatArrow
   | TokRange
   | TokSpread
   | TokSemiColon
