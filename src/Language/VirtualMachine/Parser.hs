@@ -204,7 +204,7 @@ litFunction =
       body = stmtBody <|> exprBody
       exprBody = return <$> stmtWithPos (StmtExpr <$> expr)
       stmtBody = between (groupOp TokOpenCurly) (groupOp TokCloseCurly) (many stmt)
-  in  Func <$> ((,) <$> args <*> (specialOp TokFatArrow *> body))
+  in  Func <$> ((,) <$> args <*> (specialOp TokThinArrow *> body))
 
 litMap :: Parser (Value sym int float str func vec ParseMap ParseExpr)
 litMap =

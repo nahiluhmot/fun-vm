@@ -2,8 +2,8 @@ import IO from "core/io";
 import List from "core/list";
 
 # you know what it is
-def map(f, xs) => {
-  let recur = (ys, zs) => {
+def map(f, xs) -> {
+  let recur = (ys, zs) -> {
     if List.empty?(ys) {
       zs;
     } else {
@@ -14,7 +14,7 @@ def map(f, xs) => {
   recur(xs, []);
 };
 
-let inc_all = map(x => x + 1);
+let inc_all = map(x -> x + 1);
 
 let list = [1,2,3];
 
