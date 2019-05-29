@@ -1,6 +1,3 @@
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE QuantifiedConstraints #-}
-
 module Language.VirtualMachine.Data.Fix ( Fix(..)
                                         , cata
                                         , ana
