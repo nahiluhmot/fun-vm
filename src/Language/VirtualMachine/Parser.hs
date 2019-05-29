@@ -19,9 +19,9 @@ module Language.VirtualMachine.Parser ( ParseInput
                                       ) where
 
 import Data.List (intercalate)
+import Data.Functor (($>))
 import Data.Functor.Identity (Identity)
 
-import Data.Functor (($>))
 import qualified Data.Set as S
 import Data.Text (Text)
 import Text.Parsec (ParseError, SourceName, SourcePos)
@@ -172,8 +172,9 @@ exprDebugger =
 
 exprFuncall :: Parser (Expr sym op lit ParseExpr)
 exprFuncall =
-  let args = list TokOpenParen TokCloseParen TokComma expr
-  in  ExprFuncall <$> expr <*> args <?> "function call"
+  ExprFuncall <$> expr
+              <*> list TokOpenParen TokCloseParen TokComma expr
+              <?> "function call"
 
 exprLit :: Parser (Expr sym op (ParseLit ParseExpr) expr)
 exprLit =
