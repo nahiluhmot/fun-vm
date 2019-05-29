@@ -6,12 +6,10 @@ module Language.VirtualMachine.Lexer ( runLexer
                                      , LexStream
                                      , LexToken
                                      , Tok(..)
-                                     , TokOp(..)
                                      , TokGroupOp(..)
                                      , TokBinOp(..)
                                      , TokSpecialOp(..)
                                      , TokLit(..)
-                                     , LexOp
                                      ) where
 
 import Prelude hiding (lookup)
@@ -28,8 +26,7 @@ import Text.Parsec.Pos (updatePosChar)
 
 type LexStream s = Stream s Identity Char
 type Lexer a = forall s. LexStream s => ParsecT s () Identity a
-type LexOp = TokOp TokGroupOp TokBinOp TokSpecialOp
-type LexToken = Tok LexOp (TokLit Text Rational Text)
+type LexToken = Tok TokGroupOp TokBinOp TokSpecialOp (TokLit Text Rational Text)
 
 runLexer :: LexStream s => SourceName -> s -> Either ParseError [(SourcePos, LexToken)]
 runLexer =
@@ -42,16 +39,14 @@ toks =
 whitespace :: Lexer ()
 whitespace =
   let commentLine = char '#' *> manyTill anyChar (char '\n') *> spaces
-  in  spaces <* optional (many commentLine)
+  in  spaces *> optional (many commentLine)
 
 tok :: Lexer LexToken
 tok =
   let lit = TokSym . pack <$> tokSym
         <|> TokStr . pack <$> tokStr
         <|> TokNum <$> try tokNum
-      op = tokStringOp
-       <|> tokCharOp
-  in  TokLit <$> lit <|> TokOp <$> op
+  in  TokLit <$> lit <|> tokStringOp <|> tokCharOp
 
 tokNum :: Fractional num => Lexer num
 tokNum =
@@ -78,13 +73,13 @@ tokStr =
         (satisfyMaybe (flip lookup charToEscapeCode) <|> fmap (\c -> '\\' : c : []) anyChar)
   in  char '"' *> parseUnescaped <?> "string"
 
-tokStringOp :: Lexer LexOp
+tokStringOp :: Lexer LexToken
 tokStringOp =
   let tryOp op t acc =
         try ((string op $> t) <?> "operator: " ++ op) <|> acc
   in  foldrWithKey tryOp parserZero stringToOp
 
-tokCharOp :: Lexer LexOp
+tokCharOp :: Lexer LexToken
 tokCharOp =
   satisfyMaybe (flip lookup charToOp) <?> "single character operator"
 
@@ -109,7 +104,7 @@ charToEscapeCode =
            , ('\\', "\\")
            ]
 
-stringToOp :: Map String LexOp
+stringToOp :: Map String LexToken
 stringToOp =
   fromList [ ("==", TokBinOp TokEq)
            , ("!=", TokBinOp TokNeq)
@@ -124,7 +119,7 @@ stringToOp =
            , ("..", TokSpecialOp TokRange)
            ]
 
-charToOp :: Map Char LexOp
+charToOp :: Map Char LexToken
 charToOp =
   fromList $ [ ('(', TokGroupOp TokOpenParen)
              , (')', TokGroupOp TokCloseParen)
@@ -147,15 +142,11 @@ charToOp =
              , ('?', TokSpecialOp TokQuestionMark)
              ]
 
-data Tok op lit
-  = TokOp op
-  | TokLit lit
-  deriving (Eq, Show)
-
-data TokOp group binary special
-  = TokGroupOp group
-  | TokBinOp binary
+data Tok group binary special lit
+  = TokLit lit
+  | TokGroupOp group
   | TokSpecialOp special
+  | TokBinOp binary
   deriving (Eq, Show)
 
 data TokGroupOp

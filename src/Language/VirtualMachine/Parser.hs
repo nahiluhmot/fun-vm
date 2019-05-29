@@ -32,7 +32,7 @@ import qualified Text.Parsec.Prim as P
 import Language.VirtualMachine.Data.AST (TopLevel(..), Stmt(..), Expr(..), LitExpr(..))
 import Language.VirtualMachine.Data.Fix (Fix(..), cata)
 import Language.VirtualMachine.Data.Value (Value(..))
-import Language.VirtualMachine.Lexer (LexToken, LexOp, Tok(..), TokOp(..), TokLit(..), TokGroupOp(..), TokBinOp(..), TokSpecialOp(..))
+import Language.VirtualMachine.Lexer (LexToken, Tok(..), TokLit(..), TokGroupOp(..), TokBinOp(..), TokSpecialOp(..))
 
 type ParseInput = (SourcePos, LexToken)
 type ParseStream s = Stream s Identity ParseInput
@@ -186,12 +186,12 @@ exprLit =
 lit :: Parser (ParseLit ParseExpr)
 lit =
   let chooseLit (TokLit (TokSym "nil")) = litNil
-      chooseLit (TokOp (TokSpecialOp TokColon)) = litQuotedSymbol
+      chooseLit (TokSpecialOp TokColon) = litQuotedSymbol
       chooseLit (TokLit (TokNum _)) = litNum
       chooseLit (TokLit (TokStr _)) = litString
-      chooseLit (TokOp (TokGroupOp TokOpenSquare)) = litVec
-      chooseLit (TokOp (TokGroupOp TokOpenCurly)) = litMap
-      chooseLit (TokOp (TokGroupOp TokOpenParen)) = litFunction
+      chooseLit (TokGroupOp TokOpenSquare) = litVec
+      chooseLit (TokGroupOp TokOpenCurly) = litMap
+      chooseLit (TokGroupOp TokOpenParen) = litFunction
       chooseLit (TokLit (TokSym _)) = litFunction
       chooseLit _ = parserZero
   in  lookAhead anyToken >>= chooseLit . snd
@@ -273,7 +273,7 @@ groupOp o =
         | o == o' = Just o
         | otherwise = Nothing
       test _ = Nothing
-  in  opMaybe test <?> "group operator: " ++ show o
+  in  satisfyMaybe test <?> "group operator: " ++ show o
 
 specialOp :: TokSpecialOp -> Parser TokSpecialOp
 specialOp o =
@@ -281,30 +281,13 @@ specialOp o =
         | o == o' = Just o
         | otherwise = Nothing
       test _ = Nothing
-  in  opMaybe test <?> "special operator: " ++ show o
+  in  satisfyMaybe test <?> "special operator: " ++ show o
 
 binOpAny :: Parser TokBinOp
 binOpAny =
   let test (TokBinOp o) = Just o
       test _ = Nothing
-  in  opMaybe test <?> "binary operator"
-
-op :: LexOp -> Parser LexOp
-op o =
-  opSatisfy (== o) <?> "operator: " ++ show o
-
-opSatisfy :: (LexOp -> Bool)  -> Parser LexOp
-opSatisfy f =
-  let test o
-        | f o = Just o
-        | otherwise = Nothing
-  in  opMaybe test
-
-opMaybe :: (LexOp -> Maybe a) -> Parser a
-opMaybe f =
-  let test (TokOp tok) = f tok
-      test _ = Nothing
-  in  satisfyMaybe test
+  in  satisfyMaybe test <?> "binary operator"
 
 list :: TokGroupOp
      -> TokGroupOp
@@ -312,7 +295,18 @@ list :: TokGroupOp
      -> Parser a
      -> Parser [a]
 list begin end sep ele =
-  op (TokGroupOp begin) *> sepBy ele (op (TokSpecialOp sep)) <* op (TokGroupOp end)
+  tok (TokGroupOp begin) *> sepBy ele (tok (TokSpecialOp sep)) <* tok (TokGroupOp end)
+
+tok :: LexToken -> Parser LexToken
+tok o =
+  tokSatisfy (== o) <?> "operator: " ++ show o
+
+tokSatisfy :: (LexToken -> Bool)  -> Parser LexToken
+tokSatisfy f =
+  let test o
+        | f o = Just o
+        | otherwise = Nothing
+  in  satisfyMaybe test
 
 satisfyMaybe :: (Show a, Stream s Identity (SourcePos, a))
              => (a -> Maybe b)
