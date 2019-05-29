@@ -127,10 +127,10 @@ charToOp :: Map Char LexOp
 charToOp =
   fromList $ [ ('(', TokGroupOp TokOpenParen)
              , (')', TokGroupOp TokCloseParen)
-             , ('[', TokGroupOp TokOpenBrace)
-             , (']', TokGroupOp TokCloseBrace)
-             , ('{', TokGroupOp TokOpenBracket)
-             , ('}', TokGroupOp TokCloseBracket)
+             , ('[', TokGroupOp TokOpenSquare)
+             , (']', TokGroupOp TokCloseSquare)
+             , ('{', TokGroupOp TokOpenCurly)
+             , ('}', TokGroupOp TokCloseCurly)
              , ('+', TokBinOp TokPlus)
              , ('-', TokBinOp TokMinus)
              , ('/', TokBinOp TokDiv)
@@ -160,10 +160,10 @@ data TokOp group binary special
 data TokGroupOp
   = TokOpenParen
   | TokCloseParen
-  | TokOpenBrace
-  | TokCloseBrace
-  | TokOpenBracket
-  | TokCloseBracket
+  | TokOpenSquare
+  | TokCloseSquare
+  | TokOpenCurly
+  | TokCloseCurly
   deriving (Eq, Ord, Enum, Show)
 
 -- Sorted in ascending order of precedence

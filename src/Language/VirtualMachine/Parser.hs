@@ -104,7 +104,7 @@ stmtWithPos action =
 stmtIf :: Parser (Stmt sym ParseExpr ParseStmt)
 stmtIf =
   let cond = symEq "if" *> expr
-      andThen = groupOp TokOpenBracket *> many stmt <* groupOp TokCloseBracket
+      andThen = groupOp TokOpenCurly *> many stmt <* groupOp TokCloseCurly
       orElse = symEq "else" *> (andThen <|> fmap return (stmtWithPos stmtIf))
   in  StmtIf <$> cond <*> andThen <*> (try orElse <|> pure []) <?> "if statement"
 
@@ -166,7 +166,7 @@ exprTernary =
 exprIndex :: Parser (Expr sym op lit ParseExpr)
 exprIndex =
   let staticIdx = specialOp TokDot *> fmap (LitExpr . Fix . ExprLit . Sym) rawUnquotedSymbol
-      dynamicIdx = groupOp TokOpenBrace *> expr <* groupOp TokCloseBrace
+      dynamicIdx = groupOp TokOpenSquare *> expr <* groupOp TokCloseSquare
   in  ExprIndex <$> expr <*> (staticIdx <|> dynamicIdx) <?> "index operator"
 
 exprDebugger :: Parser (Expr sym op lit expr)
@@ -189,8 +189,8 @@ lit =
       chooseLit (TokOp (TokSpecialOp TokColon)) = litQuotedSymbol
       chooseLit (TokLit (TokNum _)) = litNum
       chooseLit (TokLit (TokStr _)) = litString
-      chooseLit (TokOp (TokGroupOp TokOpenBrace)) = litVec
-      chooseLit (TokOp (TokGroupOp TokOpenBracket)) = litMap
+      chooseLit (TokOp (TokGroupOp TokOpenSquare)) = litVec
+      chooseLit (TokOp (TokGroupOp TokOpenCurly)) = litMap
       chooseLit (TokOp (TokGroupOp TokOpenParen)) = litFunction
       chooseLit (TokLit (TokSym _)) = litFunction
       chooseLit _ = parserZero
@@ -203,7 +203,7 @@ litFunction =
       multipleArgs = list TokOpenParen TokCloseParen TokComma rawUnreservedSymbol
       body = stmtBody <|> exprBody
       exprBody = return <$> stmtWithPos (StmtExpr <$> expr)
-      stmtBody = between (groupOp TokOpenBracket) (groupOp TokCloseBracket) (many stmt)
+      stmtBody = between (groupOp TokOpenCurly) (groupOp TokCloseCurly) (many stmt)
   in  Func <$> ((,) <$> args <*> (specialOp TokArrow *> body))
 
 litMap :: Parser (Value sym int float str func vec ParseMap ParseExpr)
@@ -214,12 +214,12 @@ litMap =
       keyLit = (rawUnquotedSymbol <|> rawString) <* specialOp TokColon
       keyExpr :: Parser ParseExpr
       keyExpr = expr <* specialOp TokArrow
-      entries = list TokOpenBracket TokCloseBracket TokComma ((,) <$> key <*> expr) <?> "map literal"
+      entries = list TokOpenCurly TokCloseCurly TokComma ((,) <$> key <*> expr) <?> "map literal"
   in  Map . ParseMap <$> entries
 
 litVec :: Parser (Value sym int float str func [] intMap ParseExpr)
 litVec =
-  Vector <$> list TokOpenBrace TokCloseBrace TokComma expr <?> "vector literal"
+  Vector <$> list TokOpenSquare TokCloseSquare TokComma expr <?> "vector literal"
 
 litQuotedSymbol :: Parser (Value Text int float str func vec intMap ref)
 litQuotedSymbol =
