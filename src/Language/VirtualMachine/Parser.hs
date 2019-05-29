@@ -91,7 +91,10 @@ topLevelDef =
 
 stmt :: Parser ParseStmt
 stmt =
-  stmtWithPos $ stmtAssign <|> stmtIf <|> stmtExpr
+  let chooseStmt (TokLit (TokSym "let")) = stmtAssign
+      chooseStmt (TokLit (TokSym "if")) = stmtIf
+      chooseStmt _ = stmtExpr
+  in  stmtWithPos $ lookAhead anyToken >>= chooseStmt . snd
 
 stmtWithPos :: Parser (Stmt Text ParseExpr ParseStmt) -> Parser ParseStmt
 stmtWithPos action =
