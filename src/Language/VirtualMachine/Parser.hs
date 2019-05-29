@@ -77,7 +77,7 @@ topLevelImport =
   let triple =
         tup3 <$> getPosition
              <*> (symEq "import" *> rawUnreservedSymbol <* symEq "from")
-             <*> (rawString <* specialOp TokSemiColon)
+             <*> (rawString <* stmtEnd)
   in  TopLevelImport <$> triple <?> "import"
 
 
@@ -86,7 +86,7 @@ topLevelDef =
   let triple =
         tup3 <$> getPosition
              <*> (symEq "def" *> rawUnreservedSymbol)
-             <*> (expr <* specialOp TokSemiColon)
+             <*> (expr <* stmtEnd)
   in  TopLevelDef <$> triple <?> "def"
 
 stmt :: Parser ParseStmt
@@ -111,12 +111,15 @@ stmtIf =
 stmtAssign :: Parser (Stmt Text ParseExpr stmt)
 stmtAssign =
   StmtAssign <$> (symEq "let" *> rawUnreservedSymbol <* specialOp TokAssign)
-             <*> (expr <* specialOp TokSemiColon)
+             <*> (expr <* stmtEnd)
              <?> "assignment"
 
 stmtExpr :: Parser (Stmt sym ParseExpr stmt)
 stmtExpr =
-  StmtExpr <$> expr <* specialOp TokSemiColon
+  StmtExpr <$> expr <* stmtEnd
+
+stmtEnd :: Parser ()
+stmtEnd = optional $ specialOp TokSemiColon
 
 expr :: Parser ParseExpr
 expr =
