@@ -18,4 +18,12 @@ let inc_all = map(x -> x + 1)
 
 let list = [1,2,3]
 
+{
+  big: "ol",
+  "friggen" => HASH,
+  4 => 20,
+  function: () -> 1,
+  "json": rocks
+}
+
 IO[:puts](inc_all(list))
