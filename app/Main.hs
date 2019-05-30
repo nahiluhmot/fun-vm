@@ -10,8 +10,13 @@ main :: IO ()
 main = do
   text <- hGetContents stdin
 
-  let sourceName = "*stdin*"
-
-  case runLexer sourceName text >>= runParser sourceName of
+  putStrLn "lexer: "
+  case runLexer "*stdin*" text of
     Left err -> print err
-    Right stmts -> mapM_ print stmts
+    Right tokens -> do
+      mapM_ print tokens
+
+      putStrLn "parser:"
+      case runParser "*stdin*" tokens of
+        Left err -> print err
+        Right stmts -> mapM_ print stmts
