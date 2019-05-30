@@ -130,6 +130,7 @@ charToOp =
              , ('-', TokBinOp TokMinus)
              , ('/', TokBinOp TokDiv)
              , ('*', TokBinOp TokMul)
+             , ('%', TokBinOp TokMod)
              , ('<', TokBinOp TokLt)
              , ('>', TokBinOp TokGt)
              , (',', TokSpecialOp TokComma)
@@ -157,21 +158,22 @@ data TokGroupOp
   | TokCloseCurly
   deriving (Eq, Ord, Enum, Show)
 
--- Sorted in ascending order of precedence
+-- Sorted in descending order of precedence
 data TokBinOp
-  = TokPlus
-  | TokMinus
+  = TokPow
   | TokDiv
   | TokMul
-  | TokPow
-  | TokAnd
-  | TokOr
+  | TokMod
+  | TokPlus
+  | TokMinus
   | TokEq
   | TokNeq
   | TokGt
   | TokGte
   | TokLt
   | TokLte
+  | TokAnd
+  | TokOr
   deriving (Eq, Ord, Enum, Bounded, Show)
 
 data TokSpecialOp
