@@ -81,7 +81,7 @@ topLevelDef =
 
 stmt :: Parser ParseStmt
 stmt =
-  let chooseStmt (TokLit (TokSym "let")) = stmtAssign
+  let chooseStmt (TokLit (TokSym "let")) = stmtLet
       chooseStmt (TokLit (TokSym "if")) = stmtIf
       chooseStmt _ = stmtExpr
   in  stmtWithPos $ lookAhead anyToken >>= chooseStmt . snd
@@ -98,18 +98,19 @@ stmtIf =
       orElse = symEq "else" *> (andThen <|> fmap return (stmtWithPos stmtIf))
   in  StmtIf <$> cond <*> andThen <*> (try orElse <|> pure []) <?> "if statement"
 
-stmtAssign :: Parser (Stmt Text ParseExpr stmt)
-stmtAssign =
-  StmtAssign <$> (symEq "let" *> rawUnreservedSymbol <* specialOp TokAssign)
-             <*> (expr <* stmtEnd)
-             <?> "assignment"
+stmtLet :: Parser (Stmt Text ParseExpr stmt)
+stmtLet =
+  StmtLet <$> (symEq "let" *> rawUnreservedSymbol <* specialOp TokAssign)
+          <*> (expr <* stmtEnd)
+          <?> "assignment"
 
 stmtExpr :: Parser (Stmt sym ParseExpr stmt)
 stmtExpr =
   StmtExpr <$> expr <* stmtEnd
 
 stmtEnd :: Parser ()
-stmtEnd = optional $ specialOp TokSemiColon
+stmtEnd =
+  optional $ specialOp TokSemiColon
 
 expr :: Parser ParseExpr
 expr =
@@ -365,7 +366,7 @@ instance Functor ParseMap where
 instance Show (Fix ParseStmtF) where
   show =
     let phi pos (StmtExpr e) = ["StmtExpr", parens (show pos), show e]
-        phi pos (StmtAssign s e) = ["StmtAssign", parens (show pos), show s, show e]
+        phi pos (StmtLet s e) = ["StmtLet", parens (show pos), show s, show e]
         phi pos (StmtIf cond andThen orElse) =
           ["StmtIf"
           , parens (show pos)

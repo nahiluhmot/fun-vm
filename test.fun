@@ -1,22 +1,22 @@
-import IO from "core/io"
-import List from "core/list"
+import IO from "core/io";
+import List from "core/list";
 
 # you know what it is
 def map(f, xs) -> {
   let recur = (ys, zs) -> {
     if List.empty?(ys) {
-      zs
+      zs;
     } else {
-      recur(List.tail(ys), List.snoc(zn, f(List.head(ys))))
+      recur(List.tail(ys), List.snoc(zn, f(List.head(ys))));
     }
   }
 
-  recur(xs, [])
-}
+  recur(xs, []);
+};
 
-let inc_all = map(x -> x + 1)
+let inc_all = map(x -> x + 1);
 
-let list = [1,2,3]
+let list = [1,2,3];
 
 {
   big: "ol",
@@ -24,6 +24,6 @@ let list = [1,2,3]
   4 => 20,
   function: () -> 1,
   "json": rocks
-}
+};
 
-IO[:puts](inc_all(list))
+IO[:puts](inc_all(list));

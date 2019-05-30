@@ -14,7 +14,7 @@ data TopLevel imp def stmt
 
 data Stmt sym expr stmt
   = StmtExpr expr
-  | StmtAssign sym expr
+  | StmtLet sym expr
   | StmtIf expr [stmt] [stmt]
   deriving (Eq, Show)
 
@@ -36,7 +36,7 @@ data Expr sym op lit expr
 instance Functor (Stmt sym expr) where
   fmap f =
     let go (StmtExpr expr) = StmtExpr expr
-        go (StmtAssign sym expr) = StmtAssign sym expr
+        go (StmtLet sym expr) = StmtLet sym expr
         go (StmtIf cond andThen orElse) = StmtIf cond (map f andThen) (map f orElse)
     in  go
 
