@@ -22,7 +22,6 @@ import Data.List (intercalate)
 import Data.Functor (($>))
 import Data.Functor.Identity (Identity)
 
-import qualified Data.Set as S
 import Data.Text (Text)
 import Text.Parsec (ParseError, SourceName, SourcePos)
 import Text.Parsec.Combinator
@@ -36,15 +35,7 @@ import Language.VirtualMachine.Lexer (LexToken, Tok(..), TokLit(..), TokGroupOp(
 
 type ParseInput = (SourcePos, LexToken)
 type ParseStream s = Stream s Identity ParseInput
-type Parser a = forall s. ParseStream s => ParsecT s ParserState Identity a
--- For detecting recursive expressions
-type ParserState = S.Set (RecExpr, SourcePos)
-data RecExpr
-  = RecFuncall
-  | RecIndex
-  | RecTernary
-  | RecBinOp
-  deriving (Eq, Ord, Enum, Show)
+type Parser a = forall s. ParseStream s => ParsecT s () Identity a
 
 type ParseTopLevel = TopLevel ParseImport ParseDef ParseStmt
 -- pos, var, file
@@ -61,7 +52,7 @@ newtype ParseMap a = ParseMap { runParseMap :: [(ParseExpr, a)] } deriving (Show
 
 runParser :: ParseStream s => SourceName -> s -> Either ParseError [ParseTopLevel]
 runParser =
-  P.runParser (topLevel <* eof) S.empty
+  P.runParser (topLevel <* eof) ()
 
 topLevel :: Parser [ParseTopLevel]
 topLevel =
@@ -122,25 +113,25 @@ stmtEnd = optional $ specialOp TokSemiColon
 
 expr :: Parser ParseExpr
 expr =
-  let parseExpr = recLock RecFuncall (try exprFuncall)
-              <|> recLock RecIndex (try exprIndex)
-              <|> recLock RecBinOp (try exprBinOp)
-              <|> recLock RecTernary (try exprTernary)
-              <|> try exprLit
-              <|> exprVar
-              <|> exprParen
-              <|> exprNot
-              <|> exprDebugger
-  in  LitExpr . Fix . fmap runLitExpr <$> parseExpr
+  let wrap = LitExpr . Fix . fmap runLitExpr
 
-recLock :: RecExpr -> Parser a -> Parser a
-recLock recExpr child =
-  let withLock record forbidden
-        | S.member record forbidden =
-          parserZero
-        | otherwise =
-          putState (S.insert record forbidden) *> child <* putState forbidden
-  in  getParserState >>= \(State _ pos forbidden) -> withLock (recExpr, pos) forbidden
+      simpleExpr :: Parser (Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr)
+      simpleExpr = try exprLit
+               <|> exprVar
+               <|> exprParen
+               <|> exprNot
+               <|> exprDebugger
+
+      tryParseMore :: ParseExpr -> Parser ParseExpr
+      tryParseMore ex =
+        foldr (\func parser -> (func ex >>= tryParseMore . wrap) <|> parser)
+              (pure ex)
+              [ exprFuncall
+              , exprIndex
+              , exprBinOp
+              , exprTernary
+              ]
+  in  (wrap <$> simpleExpr) >>= tryParseMore
 
 exprVar :: Parser (Expr Text op lit expr)
 exprVar =
@@ -150,40 +141,38 @@ exprParen :: Parser (Expr sym op lit ParseExpr)
 exprParen =
   groupOp TokOpenParen *> (ExprParen <$> expr) <* groupOp TokCloseParen <?> "parenthetical expression"
 
-exprBinOp :: Parser (Expr sym TokBinOp lit ParseExpr)
-exprBinOp =
-  ExprBinOp <$> expr <*> binOpAny <*> expr <?> "binary operator"
-
 exprNot :: Parser (Expr sym op lit ParseExpr)
 exprNot =
   specialOp TokNot *> (ExprNot <$> expr) <?> "not operator"
-
-exprTernary :: Parser (Expr sym op lit ParseExpr)
-exprTernary =
-  ExprTernary <$> (expr <* specialOp TokQuestionMark)
-              <*> expr
-              <*> (specialOp TokColon *> expr)
-              <?> "ternary operator"
-
-exprIndex :: Parser (Expr sym op lit ParseExpr)
-exprIndex =
-  let staticIdx = specialOp TokDot *> fmap (LitExpr . Fix . ExprLit . Sym) rawUnquotedSymbol
-      dynamicIdx = groupOp TokOpenSquare *> expr <* groupOp TokCloseSquare
-  in  ExprIndex <$> expr <*> (staticIdx <|> dynamicIdx) <?> "index operator"
 
 exprDebugger :: Parser (Expr sym op lit expr)
 exprDebugger =
   symEq "debugger" $> ExprDebugger <?> "debugger"
 
-exprFuncall :: Parser (Expr sym op lit ParseExpr)
-exprFuncall =
-  ExprFuncall <$> expr
-              <*> list TokOpenParen TokCloseParen TokComma expr
-              <?> "function call"
-
 exprLit :: Parser (Expr sym op (ParseLit ParseExpr) expr)
 exprLit =
   ExprLit <$> lit
+
+exprFuncall :: ParseExpr -> Parser (Expr sym op lit ParseExpr)
+exprFuncall func =
+  ExprFuncall func <$> list TokOpenParen TokCloseParen TokComma expr
+                   <?> "function call"
+
+exprIndex :: ParseExpr -> Parser (Expr sym TokBinOp lit ParseExpr)
+exprIndex ele =
+  let staticIdx = specialOp TokDot *> fmap (LitExpr . Fix . ExprLit . Sym) rawUnquotedSymbol
+      dynamicIdx = groupOp TokOpenSquare *> expr <* groupOp TokCloseSquare
+  in  ExprIndex ele <$> (staticIdx <|> dynamicIdx) <?> "index operator"
+
+exprBinOp :: ParseExpr -> Parser (Expr sym TokBinOp lit ParseExpr)
+exprBinOp left =
+  ExprBinOp left <$> binOpAny <*> expr <?> "binary operator"
+
+exprTernary :: ParseExpr -> Parser (Expr sym op lit ParseExpr)
+exprTernary cond =
+  ExprTernary cond <$> (specialOp TokQuestionMark *> expr)
+                   <*> (specialOp TokColon *> expr)
+                   <?> "ternary condition"
 
 lit :: Parser (ParseLit ParseExpr)
 lit =
