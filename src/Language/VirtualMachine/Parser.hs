@@ -52,7 +52,7 @@ newtype ParseMap a = ParseMap { runParseMap :: [(ParseExpr, a)] } deriving (Show
 
 runParser :: ParseStream s => SourceName -> s -> Either ParseError [ParseTopLevel]
 runParser =
-  P.runParser (topLevel <* eof) ()
+  P.runParser (skip *> topLevel <* eof) ()
 
 topLevel :: Parser [ParseTopLevel]
 topLevel =
@@ -67,17 +67,21 @@ topLevelImport :: Parser (TopLevel (SourcePos, Text, Text) def stmt)
 topLevelImport =
   let triple =
         tup3 <$> getPosition
-             <*> (symEq "import" *> rawUnreservedSymbol <* symEq "from")
-             <*> (rawString <* stmtEnd)
+             <*> (symEq "import" *> skip *> rawUnreservedSymbol <* skip <* symEq "from")
+             <*> (skip *> rawString <* stmtEnd)
   in  TopLevelImport <$> triple <?> "import"
 
 topLevelDef :: Parser (TopLevel imp (SourcePos, Text, ParseExpr) stmt)
 topLevelDef =
   let triple =
         tup3 <$> getPosition
-             <*> (symEq "def" *> rawUnreservedSymbol)
-             <*> (expr <* stmtEnd)
+             <*> (symEq "def" *> skip *> rawUnreservedSymbol)
+             <*> (skip *> expr <* stmtEnd)
   in  TopLevelDef <$> triple <?> "def"
+
+stmtEnd :: Parser ()
+stmtEnd =
+  (semicolon *> skip) <|> skipMany1 newline
 
 stmt :: Parser ParseStmt
 stmt =
@@ -93,23 +97,20 @@ stmtWithPos action =
 
 stmtIf :: Parser (Stmt sym ParseExpr ParseStmt)
 stmtIf =
-  let cond = symEq "if" *> expr
-      andThen = groupOp TokOpenCurly *> many stmt <* groupOp TokCloseCurly
-      orElse = symEq "else" *> (andThen <|> fmap return (stmtWithPos stmtIf))
+  let cond = symEq "if" *> skip *> expr <* skip
+      andThen = groupOp TokOpenCurly *> skip *> many (stmt <* skip) <* groupOp TokCloseCurly <* skip
+      orElse = symEq "else" *> skip *> (andThen <|> fmap return (stmtWithPos stmtIf))
   in  StmtIf <$> cond <*> andThen <*> (try orElse <|> pure []) <?> "if statement"
 
 stmtAssign :: Parser (Stmt Text ParseExpr stmt)
 stmtAssign =
-  StmtAssign <$> (symEq "let" *> rawUnreservedSymbol <* specialOp TokAssign)
-             <*> (expr <* stmtEnd)
+  StmtAssign <$> (symEq "let" *> skip *> rawUnreservedSymbol <* skip <* specialOp TokAssign)
+             <*> (skip *> expr <* stmtEnd)
              <?> "assignment"
 
 stmtExpr :: Parser (Stmt sym ParseExpr stmt)
 stmtExpr =
   StmtExpr <$> expr <* stmtEnd
-
-stmtEnd :: Parser ()
-stmtEnd = optional $ specialOp TokSemiColon
 
 expr :: Parser ParseExpr
 expr =
@@ -135,19 +136,19 @@ expr =
 
 exprVar :: Parser (Expr Text op lit expr)
 exprVar =
-  ExprVar <$> rawUnreservedSymbol <?> "variable"
+  ExprVar <$> rawUnreservedSymbol <* skip <?> "variable"
 
 exprParen :: Parser (Expr sym op lit ParseExpr)
 exprParen =
-  groupOp TokOpenParen *> (ExprParen <$> expr) <* groupOp TokCloseParen <?> "parenthetical expression"
+  groupOp TokOpenParen *> skip *> (ExprParen <$> expr) <* skip <* groupOp TokCloseParen <* skip <?> "parenthetical expression"
 
 exprNot :: Parser (Expr sym op lit ParseExpr)
 exprNot =
-  specialOp TokNot *> (ExprNot <$> expr) <?> "not operator"
+  specialOp TokNot *> skip *> (ExprNot <$> expr)<* skip <?> "not operator"
 
 exprDebugger :: Parser (Expr sym op lit expr)
 exprDebugger =
-  symEq "debugger" $> ExprDebugger <?> "debugger"
+  symEq "debugger" $> ExprDebugger <* skip <?> "debugger"
 
 exprLit :: Parser (Expr sym op (ParseLit ParseExpr) expr)
 exprLit =
@@ -155,23 +156,23 @@ exprLit =
 
 exprFuncall :: ParseExpr -> Parser (Expr sym op lit ParseExpr)
 exprFuncall func =
-  ExprFuncall func <$> list TokOpenParen TokCloseParen TokComma expr
+  ExprFuncall func <$> (skip *> list TokOpenParen TokCloseParen TokComma (expr <* skip) <* skip)
                    <?> "function call"
 
 exprIndex :: ParseExpr -> Parser (Expr sym TokBinOp lit ParseExpr)
 exprIndex ele =
-  let staticIdx = specialOp TokDot *> fmap (LitExpr . Fix . ExprLit . Sym) rawUnquotedSymbol
-      dynamicIdx = groupOp TokOpenSquare *> expr <* groupOp TokCloseSquare
-  in  ExprIndex ele <$> (staticIdx <|> dynamicIdx) <?> "index operator"
+  let staticIdx = specialOp TokDot *> skip *> fmap (LitExpr . Fix . ExprLit . Sym) rawUnquotedSymbol
+      dynamicIdx = groupOp TokOpenSquare *> skip *> expr <* groupOp TokCloseSquare <* skip
+  in  ExprIndex ele <$> (staticIdx <|> dynamicIdx) <* skip <?> "index operator"
 
 exprBinOp :: ParseExpr -> Parser (Expr sym TokBinOp lit ParseExpr)
 exprBinOp left =
-  ExprBinOp left <$> binOpAny <*> expr <?> "binary operator"
+  ExprBinOp left <$> (skip *> binOpAny <* skip) <*> expr <?> "binary operator"
 
 exprTernary :: ParseExpr -> Parser (Expr sym op lit ParseExpr)
 exprTernary cond =
-  ExprTernary cond <$> (specialOp TokQuestionMark *> expr)
-                   <*> (specialOp TokColon *> expr)
+  ExprTernary cond <$> (specialOp TokQuestionMark *> skip *> expr)
+                   <*> (specialOp TokColon *> skip *> expr)
                    <?> "ternary condition"
 
 lit :: Parser (ParseLit ParseExpr)
@@ -195,7 +196,7 @@ litFunction =
       body = stmtBody <|> exprBody
       exprBody = return <$> stmtWithPos (StmtExpr <$> expr)
       stmtBody = between (groupOp TokOpenCurly) (groupOp TokCloseCurly) (many stmt)
-  in  Func <$> ((,) <$> args <*> (specialOp TokThinArrow *> body)) <?> "function"
+  in  Func <$> ((,) <$> args <*> (skip *> specialOp TokThinArrow *> skip *> body <* skip)) <?> "function"
 
 litMap :: Parser (Value sym int float str func vec ParseMap ParseExpr)
 litMap =
@@ -214,21 +215,21 @@ litVec =
 
 litQuotedSymbol :: Parser (Value Text int float str func vec intMap ref)
 litQuotedSymbol =
-  specialOp TokColon *> (Sym <$> (rawUnquotedSymbol <|> rawString)) <?> "quoted symbol"
+  specialOp TokColon *> (Sym <$> (rawUnquotedSymbol <|> rawString)) <* skip <?> "quoted symbol"
 
 litNum :: Parser (Value sym int Rational str ParseFunction vec intMap ref)
 litNum =
   let test (TokLit (TokNum n)) = Just (Float n)
       test _ = Nothing
-  in  satisfyMaybe test <?> "number"
+  in  satisfyMaybe test <* skip <?> "number"
 
 litString :: Parser (Value sym int float Text func vec intMap ref)
 litString =
-  Str <$> rawString <?> "string literal"
+  Str <$> rawString <* skip <?> "string literal"
 
 litNil :: Parser (Value sym int float str func vec intMap ref)
 litNil =
-  symEq "nil" $> Nil <?> "nil"
+  symEq "nil" $> Nil <* skip <?> "nil"
 
 rawUnreservedSymbol :: Parser Text
 rawUnreservedSymbol =
@@ -264,7 +265,20 @@ list :: TokGroupOp
      -> Parser a
      -> Parser [a]
 list begin end sep ele =
-  tok (TokGroupOp begin) *> sepBy ele (tok (TokSpecialOp sep)) <* tok (TokGroupOp end)
+  tok (TokGroupOp begin) *> skip *> sepBy (ele <* skip) (tok (TokSpecialOp sep) <* skip) <* tok (TokGroupOp end) <* skip
+
+semicolon :: Parser ()
+semicolon =
+  specialOp TokSemiColon $> ()
+
+-- short name because it's everywhere
+skip :: Parser ()
+skip =
+  many newline $> ()
+
+newline :: Parser ()
+newline =
+  specialOp TokNewline $> ()
 
 groupOp :: TokGroupOp -> Parser TokGroupOp
 groupOp o =
@@ -299,9 +313,7 @@ tokSatisfy f =
         | otherwise = Nothing
   in  satisfyMaybe test
 
-satisfyMaybe :: (Show a, Stream s Identity (SourcePos, a))
-             => (a -> Maybe b)
-             -> ParsecT s u Identity b
+satisfyMaybe :: (LexToken -> Maybe a) -> Parser a
 satisfyMaybe f =
   token (show . snd) fst (f . snd)
 
