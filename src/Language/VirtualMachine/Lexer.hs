@@ -55,8 +55,7 @@ tokNum =
       afterDecimal = option 0 . try $ char '.' *> (foldr decimalShiftDown 0 . map fromIntegral <$> digits)
       decimalShiftUp acc ele = (acc * 10) + ele
       decimalShiftDown ele acc = (acc + ele) / 10
-      num = sign <*> ((+) <$> beforeDecimal <*> afterDecimal) <?> "number"
-  in  num
+  in  sign <*> ((+) <$> beforeDecimal <*> afterDecimal) <?> "number"
 
 tokSym :: Lexer String
 tokSym =
