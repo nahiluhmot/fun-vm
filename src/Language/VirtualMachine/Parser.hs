@@ -21,6 +21,7 @@ module Language.VirtualMachine.Parser ( ParseInput
 import Data.List (intercalate)
 import Data.Functor (($>))
 import Data.Functor.Identity (Identity)
+import Data.Maybe (fromMaybe)
 
 import Data.Text (Text)
 import Text.Parsec (ParseError, SourceName, SourcePos)
@@ -138,27 +139,25 @@ expr =
               ]
 
       fixPrecedence :: Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr -> ParseExpr
-      fixPrecedence (ExprNot inner) =
-        case unwrap inner of
-          ExprBinOp l o r ->
-            wrap $ ExprBinOp (wrap $ ExprNot l) o r
-          ExprTernary c t e ->
-            wrap $ ExprTernary (wrap $ ExprNot c)  t e
-          fixed -> wrap $ ExprNot (wrap fixed)
-      fixPrecedence (ExprBinOp left op r) =
-        -- Technically, `left` could also be a binary operator. However, the
-        -- `tryParseMore` strategy will only produce `ExprBinOp`s to the right.
-        -- If that changes in the future, then this case statement will need an
-        -- expanding.
-        case unwrap r of
-          right@(ExprBinOp middleRight opRight farRight)
-            | op <= opRight ->
-              wrap $ ExprBinOp (wrap $ ExprBinOp left op middleRight) opRight farRight
-            | otherwise ->
-              wrap $ ExprBinOp left op (wrap right)
-          right ->
-            wrap $ ExprBinOp left op (wrap right)
-      fixPrecedence x = wrap x
+      fixPrecedence orig =
+        fromMaybe (wrap orig) (fixExpr $ fmap unwrap orig)
+
+      fixExpr :: Expr Text TokBinOp (ParseLit ParseExpr) (Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr)
+              -> Maybe ParseExpr
+      fixExpr (ExprNot (ExprBinOp left op right)) =
+        Just . wrap $ ExprBinOp (wrap $ ExprNot left) op right
+      fixExpr (ExprNot (ExprTernary cond andThen orElse)) =
+        Just . wrap $ ExprTernary (wrap $ ExprNot cond) andThen orElse
+
+      -- Technically, `left` could also be a binary operation. However, given
+      -- the `tryParseMore` strategy, this parser will never produce that. If
+      -- that changes in the future, this logic will have to get more complex.
+      fixExpr (ExprBinOp left leftOp (ExprBinOp middle rightOp right))
+        | leftOp <= rightOp =
+          Just . wrap $ ExprBinOp (wrap $ ExprBinOp (wrap left) leftOp middle) rightOp right
+        | otherwise =
+          Nothing
+      fixExpr _ = Nothing
 
   in  (wrap <$> simpleExpr) >>= fmap (cata fixPrecedence . runLitExpr) . tryParseMore
 
