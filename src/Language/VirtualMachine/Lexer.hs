@@ -14,7 +14,7 @@ module Language.VirtualMachine.Lexer ( runLexer
 
 import Prelude hiding (lookup)
 
-import Data.Char (digitToInt)
+import Data.Char (digitToInt, isSpace)
 import Data.Functor (($>))
 import Data.Functor.Identity (Identity)
 
@@ -36,17 +36,22 @@ toks :: Lexer [(SourcePos, LexToken)]
 toks =
   whitespace *> sepEndBy ((,) <$> getPosition <*> tok) whitespace
 
+-- Newlines separate expressions, but we want to ignore those which appear in
+-- the middle of comments.
 whitespace :: Lexer ()
 whitespace =
-  let commentLine = char '#' *> manyTill anyChar (char '\n') *> spaces
-  in  spaces *> optional (many commentLine)
+  let commentLine = char '#' *> manyTill anyChar (char '\n') *> spaces <?> "comment"
+      nonNewlineSpace = satisfy isNonNewlineSpace <?> "non newline space"
+      isNonNewlineSpace '\n' = False
+      isNonNewlineSpace c = isSpace c
+  in  many nonNewlineSpace *> optional (many commentLine)
 
 tok :: Lexer LexToken
 tok =
   let lit = TokSym . pack <$> tokSym
         <|> TokStr . pack <$> tokStr
         <|> TokNum <$> try tokNum
-  in  TokLit <$> lit <|> tokStringOp <|> tokCharOp
+  in  TokLit <$> lit <|> tokNewline <|> tokStringOp <|> tokCharOp <?> "lex token"
 
 tokNum :: Fractional num => Lexer num
 tokNum =
@@ -61,6 +66,7 @@ tokSym :: Lexer String
 tokSym =
   (:) <$> (letter <|> char '_')
       <*> many (alphaNum <|> char '_' <|> char '?')
+      <?> "symbol"
 
 tokStr :: Lexer String
 tokStr =
@@ -76,11 +82,15 @@ tokStringOp :: Lexer LexToken
 tokStringOp =
   let tryOp op t acc =
         try ((string op $> t) <?> "operator: " ++ op) <|> acc
-  in  foldrWithKey tryOp parserZero stringToOp
+  in  foldrWithKey tryOp parserZero stringToOp <?> "operator with multiple characters"
 
 tokCharOp :: Lexer LexToken
 tokCharOp =
   satisfyMaybe (flip lookup charToOp) <?> "single character operator"
+
+tokNewline :: Lexer LexToken
+tokNewline =
+  char '\n' $> TokSpecialOp TokNewline
 
 digits :: Lexer [Int]
 digits =
@@ -186,6 +196,7 @@ data TokSpecialOp
   | TokSpread
   | TokSemiColon
   | TokQuestionMark
+  | TokNewline -- technically an operator
   deriving (Eq, Show)
 
 data TokLit sym num str
