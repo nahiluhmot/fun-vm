@@ -113,7 +113,11 @@ stmtEnd = optional $ specialOp TokSemiColon
 
 expr :: Parser ParseExpr
 expr =
-  let wrap = LitExpr . Fix . fmap runLitExpr
+  let wrap :: Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr -> ParseExpr
+      wrap = LitExpr . Fix . fmap runLitExpr
+
+      unwrap :: ParseExpr -> Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr
+      unwrap = fmap LitExpr . unFix . runLitExpr
 
       simpleExpr :: Parser (Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr)
       simpleExpr = try exprLit
@@ -131,7 +135,47 @@ expr =
               , exprBinOp
               , exprTernary
               ]
-  in  (wrap <$> simpleExpr) >>= tryParseMore
+
+
+      fixPrecedence :: Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr
+                    -> Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr
+      fixPrecedence (ExprFuncall func args) =
+        ExprFuncall (fixPrecedence' func)
+                    (map fixPrecedence' args)
+      fixPrecedence (ExprIndex val idx) =
+        ExprIndex (fixPrecedence' val)
+                  (fixPrecedence' idx)
+      fixPrecedence (ExprTernary c t e) =
+        ExprTernary (fixPrecedence' c)
+                    (fixPrecedence' t)
+                    (fixPrecedence' e)
+      fixPrecedence (ExprParen inner) =
+        ExprParen $ fixPrecedence' inner
+      fixPrecedence (ExprNot inner) =
+        case fixPrecedence $ unwrap inner of
+          ExprBinOp l o r ->
+            ExprBinOp (wrap $ ExprNot l) o r
+          ExprTernary c t e ->
+            ExprTernary (wrap $ ExprNot c)  t e
+          fixed -> ExprNot (wrap fixed)
+      fixPrecedence (ExprBinOp l op r) =
+        -- Technically, `left` could also be a binary operator. However, the
+        -- `tryParseMore` strategy will only produce `ExprBinOp`s to the right.
+        -- If that changes in the future, then this case statement will need an
+        -- expanding.
+        case (fixPrecedence $ unwrap l, fixPrecedence $ unwrap r) of
+          (left, right@(ExprBinOp middleRight opRight farRight))
+            | op <= opRight ->
+              ExprBinOp (wrap $ ExprBinOp (wrap left) op middleRight) opRight farRight
+            | otherwise ->
+              ExprBinOp (wrap left) op (wrap right)
+          (left, right) ->
+            ExprBinOp (wrap left) op (wrap right)
+      fixPrecedence x = x
+
+      fixPrecedence' = wrap . fixPrecedence . unwrap
+
+  in  (wrap <$> simpleExpr) >>= fmap fixPrecedence' . tryParseMore
 
 exprVar :: Parser (Expr Text op lit expr)
 exprVar =
