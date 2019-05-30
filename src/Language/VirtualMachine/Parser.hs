@@ -131,7 +131,7 @@ expr =
               , exprBinOp
               , exprTernary
               ]
-  in  (wrap <$> simpleExpr) >>= tryParseMore
+  in  simpleExpr >>= tryParseMore . wrap
 
 exprVar :: Parser (Expr Text op lit expr)
 exprVar =
@@ -228,7 +228,7 @@ litString =
 
 litNil :: Parser (Value sym int float str func vec intMap ref)
 litNil =
-  symEq "nil" $> Nil
+  symEq "nil" $> Nil <?> "nil"
 
 rawUnreservedSymbol :: Parser Text
 rawUnreservedSymbol =
@@ -258,6 +258,14 @@ symEq s =
       test _ = Nothing
   in  satisfyMaybe test <?> "symbol: " ++ show s
 
+list :: TokGroupOp
+     -> TokGroupOp
+     -> TokSpecialOp
+     -> Parser a
+     -> Parser [a]
+list begin end sep ele =
+  tok (TokGroupOp begin) *> sepBy ele (tok (TokSpecialOp sep)) <* tok (TokGroupOp end)
+
 groupOp :: TokGroupOp -> Parser TokGroupOp
 groupOp o =
   let test (TokGroupOp o')
@@ -280,17 +288,9 @@ binOpAny =
       test _ = Nothing
   in  satisfyMaybe test <?> "binary operator"
 
-list :: TokGroupOp
-     -> TokGroupOp
-     -> TokSpecialOp
-     -> Parser a
-     -> Parser [a]
-list begin end sep ele =
-  tok (TokGroupOp begin) *> sepBy ele (tok (TokSpecialOp sep)) <* tok (TokGroupOp end)
-
 tok :: LexToken -> Parser LexToken
 tok o =
-  tokSatisfy (== o) <?> "operator: " ++ show o
+  tokSatisfy (== o) <?> "token: " ++ show o
 
 tokSatisfy :: (LexToken -> Bool)  -> Parser LexToken
 tokSatisfy f =
