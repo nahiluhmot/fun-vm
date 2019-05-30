@@ -2,23 +2,21 @@ module Language.VirtualMachine.Data.Value ( Value(..)
                                           , Function(..)
                                           ) where
 
-data Value sym int float str func vec intMap ref
+data Value sym float str func vec intMap ref
   = Nil
   | Sym sym
-  | Int int
-  | Float float
+  | Number float
   | Str str
   | Func func
   | Vector (vec ref)
   | Map (intMap ref)
   deriving (Eq, Show)
 
-instance (Functor vec, Functor intMap) => Functor (Value sym int float str func vec intMap) where
+instance (Functor vec, Functor intMap) => Functor (Value sym float str func vec intMap) where
   fmap f =
     let go Nil = Nil
         go (Sym s) = Sym s
-        go (Int i) = Int i
-        go (Float g) = Float g
+        go (Number g) = Number g
         go (Str text) = Str text
         go (Func func) = Func func
         go (Vector xs) = Vector $ fmap f xs

@@ -45,7 +45,7 @@ type ParseDef = (SourcePos, Text, ParseExpr)
 type ParseStmt = Fix ParseStmtF
 newtype ParseStmtF a = ParseStmtF { runParseStmtF :: (SourcePos, Stmt Text ParseExpr a) } deriving (Show)
 type ParseExpr = LitExpr (Expr Text TokBinOp) ParseLit
-type ParseLit = Value Text Integer Rational Text ParseFunction [] ParseMap
+type ParseLit = Value Text Rational Text ParseFunction [] ParseMap
 -- args, body
 type ParseFunction = ([Text], [ParseStmt])
 newtype ParseMap a = ParseMap { runParseMap :: [(ParseExpr, a)] } deriving (Show)
@@ -187,7 +187,7 @@ lit =
       chooseLit _ = parserZero
   in  lookAhead anyToken >>= chooseLit . snd
 
-litFunction :: Parser (Value sym int float str ParseFunction vec intMap ref)
+litFunction :: Parser (Value sym number str ParseFunction vec intMap ref)
 litFunction =
   let args = singleArg <|> multipleArgs
       singleArg = fmap (\x -> [x]) rawUnreservedSymbol
@@ -197,7 +197,7 @@ litFunction =
       stmtBody = between (groupOp TokOpenCurly) (groupOp TokCloseCurly) (many stmt)
   in  Func <$> ((,) <$> args <*> (specialOp TokThinArrow *> body)) <?> "function"
 
-litMap :: Parser (Value sym int float str func vec ParseMap ParseExpr)
+litMap :: Parser (Value sym number str func vec ParseMap ParseExpr)
 litMap =
   let key :: Parser ParseExpr
       key = try (LitExpr . Fix . ExprLit . Sym <$> keyLit) <|> keyExpr
@@ -208,25 +208,25 @@ litMap =
       entries = list TokOpenCurly TokCloseCurly TokComma ((,) <$> key <*> expr) <?> "map literal"
   in  Map . ParseMap <$> entries
 
-litVec :: Parser (Value sym int float str func [] intMap ParseExpr)
+litVec :: Parser (Value sym number str func [] intMap ParseExpr)
 litVec =
   Vector <$> list TokOpenSquare TokCloseSquare TokComma expr <?> "vector literal"
 
-litQuotedSymbol :: Parser (Value Text int float str func vec intMap ref)
+litQuotedSymbol :: Parser (Value Text number str func vec intMap ref)
 litQuotedSymbol =
   specialOp TokColon *> (Sym <$> (rawUnquotedSymbol <|> rawString)) <?> "quoted symbol"
 
-litNum :: Parser (Value sym int Rational str ParseFunction vec intMap ref)
+litNum :: Parser (Value sym Rational str ParseFunction vec intMap ref)
 litNum =
-  let test (TokLit (TokNum n)) = Just (Float n)
+  let test (TokLit (TokNum n)) = Just (Number n)
       test _ = Nothing
   in  satisfyMaybe test <?> "number"
 
-litString :: Parser (Value sym int float Text func vec intMap ref)
+litString :: Parser (Value sym number Text func vec intMap ref)
 litString =
   Str <$> rawString <?> "string literal"
 
-litNil :: Parser (Value sym int float str func vec intMap ref)
+litNil :: Parser (Value sym number str func vec intMap ref)
 litNil =
   symEq "nil" $> Nil
 
