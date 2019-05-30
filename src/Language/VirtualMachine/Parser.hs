@@ -348,6 +348,12 @@ reservedWords =
 tup3 :: a -> b -> c -> (a, b, c)
 tup3 a b c = (a, b, c)
 
+parens :: String -> String
+parens x = '(' : x ++ ")"
+
+joinSpace :: [String] -> String
+joinSpace = intercalate " "
+
 instance Functor ParseStmtF where
   fmap f (ParseStmtF (pos, s)) =
     ParseStmtF (pos, fmap f s)
@@ -381,9 +387,3 @@ instance Show (LitExpr (Expr Text TokBinOp) ParseLit) where
         phi (ExprBinOp e o e') = ["ExprBinOp", e, show o, e']
         phi ExprDebugger = ["ExprDebugger"]
     in  cata (parens . joinSpace . phi) . runLitExpr
-
-parens :: String -> String
-parens x = '(' : x ++ ")"
-
-joinSpace :: [String] -> String
-joinSpace = intercalate " "
