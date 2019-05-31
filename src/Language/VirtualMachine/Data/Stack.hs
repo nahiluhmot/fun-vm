@@ -3,21 +3,19 @@ module Language.VirtualMachine.Data.Stack ( StackConfig(..)
                                           , StackFrame(..)
                                           ) where
 
-import Data.IntMap (IntMap)
-
-data StackConfig
-  = StackConfig { stMaxDepth :: Int
-                , stMain :: Int
+data StackConfig int ref
+  = StackConfig { stMaxDepth :: int
+                , stMain :: ref
                 } deriving (Eq, Show)
 
-data StackState
-  = StateState { stFrames :: [StackFrame]
-               , stDepth :: Int
+data StackState int stackFrame
+  = StateState { stFrames :: [stackFrame]
+               , stDepth :: int
                } deriving (Eq, Show)
 
-data StackFrame
-  = StackFrame { stFuncAddr :: Int
-               , stFuncIdx :: Int
-               , stScope :: [IntMap Int]
-               , stModule :: Int
+data StackFrame intMap ref
+  = StackFrame { stFuncAddr :: ref
+               , stFuncIdx :: ref
+               , stScope :: [intMap ref]
+               , stModule :: ref
                } deriving (Eq, Show)

@@ -15,10 +15,10 @@ data MemoryConfig int float
 
                  } deriving (Eq, Show)
 
-data MemoryState int text intMap symbolTable value
-  = MemoryState { memNursery :: intMap value
-                , memHeap :: intMap value
-                , memSymbolTable :: symbolTable text
+data MemoryState int symbolTable ary
+  = MemoryState { memNursery :: ary
+                , memHeap :: ary
+                , memSymbolTable :: symbolTable
                 , memGeneration :: int
                 , memNextNurseryKey :: int
                 , memNextHeapGC :: int

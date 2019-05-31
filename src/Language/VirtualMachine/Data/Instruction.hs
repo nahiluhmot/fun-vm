@@ -2,8 +2,10 @@ module Language.VirtualMachine.Data.Instruction ( Instruction
                                                 , InstructionF(..)
                                                 ) where
 
+import Data.Word (Word32)
+
 type Instruction
-  = InstructionF Int
+  = InstructionF Word32
 
 data InstructionF arg
   = Push arg
