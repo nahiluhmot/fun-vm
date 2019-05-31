@@ -12,7 +12,9 @@ module Language.VirtualMachine.Parser ( ParseInput
                                       , ParseStmt
                                       , ParseStmtF(..)
                                       , ParseExpr
+                                      , ParseExprF(..)
                                       , ParseLit
+                                      , ParseLitF
                                       , ParseFunction
                                       , ParseMap(..)
                                       , runParser
@@ -21,7 +23,6 @@ module Language.VirtualMachine.Parser ( ParseInput
 import Data.List (intercalate)
 import Data.Functor (($>))
 import Data.Functor.Identity (Identity)
-import Data.Maybe (fromMaybe)
 
 import Data.Text (Text)
 import Text.Parsec (ParseError, SourceName, SourcePos)
@@ -29,7 +30,7 @@ import Text.Parsec.Combinator
 import Text.Parsec.Prim hiding (runParser)
 import qualified Text.Parsec.Prim as P
 
-import Language.VirtualMachine.Data.AST (TopLevel(..), Stmt(..), Expr(..), LitExpr(..))
+import Language.VirtualMachine.Data.AST (TopLevel(..), Stmt(..), Expr(..))
 import Language.VirtualMachine.Data.Fix (Fix(..), cata)
 import Language.VirtualMachine.Data.Value (Value(..))
 import Language.VirtualMachine.Lexer (LexToken, Tok(..), TokLit(..), TokGroupOp(..), TokBinOp(..), TokSpecialOp(..))
@@ -45,8 +46,10 @@ type ParseImport = (SourcePos, Text, Text)
 type ParseDef = (SourcePos, Text, ParseExpr)
 type ParseStmt = Fix ParseStmtF
 newtype ParseStmtF a = ParseStmtF { runParseStmtF :: (SourcePos, Stmt Text ParseExpr a) } deriving (Show)
-type ParseExpr = LitExpr (Expr Text TokBinOp) ParseLit
-type ParseLit = Value Text Rational Text ParseFunction [] ParseMap
+type ParseExpr = Fix (ParseExprF Text TokBinOp ParseLitF)
+newtype ParseExprF text op lit a = ParseExprF { runParseExprF :: Expr text op (lit a) a } deriving (Show)
+type ParseLit = ParseLitF ParseExpr
+type ParseLitF = Value Text Rational Text ParseFunction [] ParseMap
 -- args, body
 type ParseFunction = ([Text], [ParseStmt])
 newtype ParseMap a = ParseMap { runParseMap :: [(ParseExpr, a)] } deriving (Show)
@@ -115,13 +118,13 @@ stmtEnd =
 
 expr :: Parser ParseExpr
 expr =
-  let wrap :: Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr -> ParseExpr
-      wrap = LitExpr . Fix . fmap runLitExpr
+  let wrap :: Expr Text TokBinOp ParseLit ParseExpr -> ParseExpr
+      wrap = Fix . ParseExprF
 
-      unwrap :: ParseExpr -> Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr
-      unwrap = fmap LitExpr . unFix . runLitExpr
+      unwrap :: ParseExpr -> Expr Text TokBinOp ParseLit ParseExpr
+      unwrap = runParseExprF . unFix
 
-      simpleExpr :: Parser (Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr)
+      simpleExpr :: Parser (Expr Text TokBinOp ParseLit ParseExpr)
       simpleExpr = try exprLit
                <|> exprVar
                <|> exprParen
@@ -138,28 +141,30 @@ expr =
               , exprTernary
               ]
 
-      fixPrecedence :: Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr -> ParseExpr
-      fixPrecedence orig =
-        fromMaybe (wrap orig) (fixExpr $ fmap unwrap orig)
-
-      fixExpr :: Expr Text TokBinOp (ParseLit ParseExpr) (Expr Text TokBinOp (ParseLit ParseExpr) ParseExpr)
-              -> Maybe ParseExpr
-      fixExpr (ExprNot (ExprBinOp left op right)) =
-        Just . wrap $ ExprBinOp (wrap $ ExprNot left) op right
-      fixExpr (ExprNot (ExprTernary cond andThen orElse)) =
-        Just . wrap $ ExprTernary (wrap $ ExprNot cond) andThen orElse
-
+      fixExpr :: Expr Text TokBinOp ParseLit ParseExpr -> Expr Text TokBinOp ParseLit ParseExpr
       -- Technically, `left` could also be a binary operation. However, given
       -- the `tryParseMore` strategy, this parser will never produce that. If
       -- that changes in the future, this logic will have to get more complex.
-      fixExpr (ExprBinOp left leftOp (ExprBinOp middle rightOp right))
-        | leftOp <= rightOp =
-          Just . wrap $ ExprBinOp (wrap $ ExprBinOp (wrap left) leftOp middle) rightOp right
-        | otherwise =
-          Nothing
-      fixExpr _ = Nothing
+      fixExpr orig@(ExprBinOp left leftOp right) =
+        case unwrap right of
+          ExprBinOp middle rightOp farRight
+            | leftOp <= rightOp ->
+              ExprBinOp (wrap $ ExprBinOp left leftOp middle) rightOp farRight
+            | otherwise -> orig
+          _ -> orig
+      fixExpr orig@(ExprNot inner) =
+        case unwrap inner of
+          ExprBinOp left op right ->
+            ExprBinOp (wrap $ ExprNot left) op right
+          ExprTernary cond andThen orElse ->
+            ExprTernary (wrap $ ExprNot cond) andThen orElse
+          _ -> orig
+      fixExpr orig = orig
 
-  in  (wrap <$> simpleExpr) >>= fmap (cata fixPrecedence . runLitExpr) . tryParseMore
+      fixOperatorPrecedence :: ParseExpr -> ParseExpr
+      fixOperatorPrecedence = cata $ wrap . fixExpr . runParseExprF
+
+  in  simpleExpr >>= fmap fixOperatorPrecedence . tryParseMore . wrap
 
 exprVar :: Parser (Expr Text op lit expr)
 exprVar =
@@ -177,7 +182,7 @@ exprDebugger :: Parser (Expr sym op lit expr)
 exprDebugger =
   symEq "debugger" $> ExprDebugger <?> "debugger"
 
-exprLit :: Parser (Expr sym op (ParseLit ParseExpr) expr)
+exprLit :: Parser (Expr sym op ParseLit expr)
 exprLit =
   ExprLit <$> lit
 
@@ -188,7 +193,7 @@ exprFuncall func =
 
 exprIndex :: ParseExpr -> Parser (Expr sym TokBinOp lit ParseExpr)
 exprIndex ele =
-  let staticIdx = specialOp TokDot *> fmap (LitExpr . Fix . ExprLit . Sym) rawUnquotedSymbol
+  let staticIdx = specialOp TokDot *> fmap (Fix . ParseExprF . ExprLit . Sym) rawUnquotedSymbol
       dynamicIdx = groupOp TokOpenSquare *> expr <* groupOp TokCloseSquare
   in  ExprIndex ele <$> (staticIdx <|> dynamicIdx) <?> "index operator"
 
@@ -202,7 +207,7 @@ exprTernary cond =
                    <*> (specialOp TokColon *> expr)
                    <?> "ternary condition"
 
-lit :: Parser (ParseLit ParseExpr)
+lit :: Parser ParseLit
 lit =
   let chooseLit (TokLit (TokSym "nil")) = litNil
       chooseLit (TokSpecialOp TokColon) = litQuotedSymbol
@@ -228,7 +233,7 @@ litFunction =
 litMap :: Parser (Value sym number str func vec ParseMap ParseExpr)
 litMap =
   let key :: Parser ParseExpr
-      key = try (LitExpr . Fix . ExprLit . Sym <$> keyLit) <|> keyExpr
+      key = try (Fix . ParseExprF . ExprLit . Sym <$> keyLit) <|> keyExpr
       keyLit :: Parser Text
       keyLit = (rawUnquotedSymbol <|> rawString) <* specialOp TokColon
       keyExpr :: Parser ParseExpr
@@ -358,6 +363,19 @@ instance Functor ParseStmtF where
   fmap f (ParseStmtF (pos, s)) =
     ParseStmtF (pos, fmap f s)
 
+instance Functor lit => Functor (ParseExprF text op lit) where
+  fmap f =
+    let go (ExprLit l) = ExprLit (fmap f l)
+        go (ExprVar var) = ExprVar var
+        go (ExprFuncall func args) = ExprFuncall (f func) (map f args)
+        go (ExprIndex ele idx) = ExprIndex (f ele) (f idx)
+        go (ExprTernary cond andThen orElse) = ExprTernary (f cond) (f andThen) (f orElse)
+        go (ExprParen inner) = ExprParen (f inner)
+        go (ExprNot inner) = ExprNot (f inner)
+        go (ExprBinOp left op right) = ExprBinOp (f left) op (f right)
+        go ExprDebugger = ExprDebugger
+    in  ParseExprF . go . runParseExprF
+
 instance Functor ParseMap where
   fmap f =
     ParseMap . map (fmap f) . runParseMap
@@ -375,7 +393,7 @@ instance Show (Fix ParseStmtF) where
           ]
     in  cata (parens . joinSpace . uncurry phi . runParseStmtF)
 
-instance Show (LitExpr (Expr Text TokBinOp) ParseLit) where
+instance Show (Fix (ParseExprF Text TokBinOp ParseLitF)) where
   show =
     let phi (ExprLit l) = ["ExprLit", show l]
         phi (ExprVar var) = ["ExprVar", show var]
@@ -386,4 +404,4 @@ instance Show (LitExpr (Expr Text TokBinOp) ParseLit) where
         phi (ExprNot e) = ["ExprNot", e]
         phi (ExprBinOp e o e') = ["ExprBinOp", e, show o, e']
         phi ExprDebugger = ["ExprDebugger"]
-    in  cata (parens . joinSpace . phi) . runLitExpr
+    in  cata (parens . joinSpace . phi . runParseExprF)

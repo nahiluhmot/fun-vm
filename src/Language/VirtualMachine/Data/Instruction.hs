@@ -1,24 +1,13 @@
-module Language.VirtualMachine.Data.Instruction ( Instruction
-                                                , InstructionF(..)
+module Language.VirtualMachine.Data.Instruction ( Instruction(..)
                                                 ) where
 
-import Data.Word (Word32)
-
-type Instruction
-  = InstructionF Word32
-
-data InstructionF arg
-  = Push arg
-  | Syscall arg
-  | Lookup arg
-  | Funcall arg
-  | Set arg
-  | Return
-  | BranchIf arg
-  | Recur arg
-  | Def arg
-  | Import arg
-  | Module arg
-  | Pop
-  | Nop
+data Instruction push funcall branchIf imp def local mod mkFunc
+  = Push push
+  | Funcall funcall
+  | BranchIf branchIf
+  | Import imp
+  | Def def
+  | Local local
+  | Module mod
+  | MkFunc mkFunc
   deriving (Eq, Show)

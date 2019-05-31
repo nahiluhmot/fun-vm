@@ -1,10 +1,7 @@
 module Language.VirtualMachine.Data.AST ( TopLevel(..)
                                         , Stmt(..)
-                                        , LitExpr(..)
                                         , Expr(..)
                                         ) where
-
-import Language.VirtualMachine.Data.Fix (Fix)
 
 data TopLevel imp def stmt
   = TopLevelImport imp
@@ -17,9 +14,6 @@ data Stmt sym expr stmt
   | StmtLet sym expr
   | StmtIf expr [stmt] [stmt]
   deriving (Eq, Show)
-
-newtype LitExpr expr lit
-  = LitExpr { runLitExpr :: Fix (expr (lit (LitExpr expr lit))) }
 
 data Expr sym op lit expr
   = ExprLit lit
