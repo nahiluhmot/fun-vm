@@ -114,7 +114,7 @@ stmtExpr =
 
 stmtEnd :: Parser ()
 stmtEnd =
-  optional $ specialOp TokSemiColon
+  () <$ specialOp TokSemiColon
 
 expr :: Parser ParseExpr
 expr =

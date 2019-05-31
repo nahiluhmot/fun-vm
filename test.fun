@@ -9,14 +9,14 @@ def map(f, xs) -> {
     } else {
       recur(List.tail(ys), List.snoc(zn, f(List.head(ys))));
     }
-  }
+  };
 
   recur(xs, []);
 };
 
 let inc_all = map(x -> x + 1);
 
-let list = [1,2,3];
+let list = [1, 2, 3];
 
 {
   big: "ol",
