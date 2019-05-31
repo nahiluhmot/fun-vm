@@ -67,7 +67,7 @@ topLevelStmt :: Parser (TopLevel imp def ParseStmt)
 topLevelStmt =
   TopLevelStmt <$> stmt
 
-topLevelImport :: Parser (TopLevel (SourcePos, Text, Text) def stmt)
+topLevelImport :: Parser (TopLevel ParseImport def stmt)
 topLevelImport =
   let triple =
         tup3 <$> getPosition
@@ -75,7 +75,7 @@ topLevelImport =
              <*> (rawString <* stmtEnd)
   in  TopLevelImport <$> triple <?> "import"
 
-topLevelDef :: Parser (TopLevel imp (SourcePos, Text, ParseExpr) stmt)
+topLevelDef :: Parser (TopLevel imp ParseDef stmt)
 topLevelDef =
   let triple =
         tup3 <$> getPosition
