@@ -249,7 +249,7 @@ litQuotedSymbol :: Parser (Value Text number str func vec intMap ref)
 litQuotedSymbol =
   specialOp TokColon *> (Sym <$> (rawUnquotedSymbol <|> rawString)) <?> "quoted symbol"
 
-litNum :: Parser (Value sym Rational str ParseFunction vec intMap ref)
+litNum :: Parser (Value sym Rational str func vec intMap ref)
 litNum =
   let test (TokLit (TokNum n)) = Just (Number n)
       test _ = Nothing
