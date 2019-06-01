@@ -1,13 +1,18 @@
 module Language.VirtualMachine.Data.Instruction ( Instruction(..)
                                                 ) where
 
-data Instruction push funcall branchIf imp def local mod mkFunc
-  = Push push
-  | Funcall funcall
-  | BranchIf branchIf
-  | Import imp
-  | Def def
-  | Local local
-  | Module mod
-  | MkFunc mkFunc
+data Instruction sym int val
+  = Push val
+  | Pop
+  | Dup
+  | Var sym
+  | Let sym
+  | BranchIf int
+  | Funcall int
+  | Lambda int
+  | Return
+  | Def sym
+  | Import sym
+  | Module sym
+  | Debugger
   deriving (Eq, Show)
