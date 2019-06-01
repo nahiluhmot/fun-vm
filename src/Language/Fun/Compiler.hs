@@ -3,10 +3,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module Language.VirtualMachine.Compiler ( CompilerInsn
-                                        , CompilerValue
-                                        , compile
-                                        ) where
+module Language.Fun.Compiler ( CompilerInsn
+                             , CompilerValue
+                             , compile
+                             ) where
 
 import Prelude hiding (mod)
 
@@ -18,13 +18,13 @@ import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as S
 import Data.Text (Text)
 
-import Language.VirtualMachine.Data.Fix (cata)
-import Language.VirtualMachine.Data.AST (TopLevel(..), Stmt(..), Expr(..))
-import Language.VirtualMachine.Data.Value (Value(..))
-import Language.VirtualMachine.Data.Instruction (Instruction(..))
-import Language.VirtualMachine.Data.Void (VoidF)
-import Language.VirtualMachine.Lexer (TokBinOp(..))
-import Language.VirtualMachine.Parser
+import Language.Fun.Data.Fix (cata)
+import Language.Fun.Data.AST (TopLevel(..), Stmt(..), Expr(..))
+import Language.Fun.Data.Value (Value(..))
+import Language.Fun.Data.Instruction (Instruction(..))
+import Language.Fun.Data.Void (VoidF)
+import Language.Fun.Lexer (TokBinOp(..))
+import Language.Fun.Parser
 
 type CompilerInsn = Instruction Text Int CompilerValue
 type CompilerValue = Value Text Rational Text Void VoidF VoidF Void

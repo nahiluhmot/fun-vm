@@ -1,5 +1,5 @@
-module Language.VirtualMachine.Data.Instruction ( Instruction(..)
-                                                ) where
+module Language.Fun.Data.Instruction ( Instruction(..)
+                                     ) where
 
 data Instruction sym int val
   = Push val

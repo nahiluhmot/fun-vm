@@ -5,7 +5,7 @@ import System.IO (stdin)
 import Data.Text (pack)
 import Data.Text.IO (hGetContents)
 
-import Language.VirtualMachine (compile, runLexer, runParser)
+import Language.Fun (compile, runLexer, runParser)
 
 main :: IO ()
 main = do

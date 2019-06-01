@@ -2,15 +2,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE Rank2Types #-}
 
-module Language.VirtualMachine.Lexer ( runLexer
-                                     , LexStream
-                                     , LexToken
-                                     , Tok(..)
-                                     , TokGroupOp(..)
-                                     , TokBinOp(..)
-                                     , TokSpecialOp(..)
-                                     , TokLit(..)
-                                     ) where
+module Language.Fun.Lexer ( runLexer
+                          , LexStream
+                          , LexToken
+                          , Tok(..)
+                          , TokGroupOp(..)
+                          , TokBinOp(..)
+                          , TokSpecialOp(..)
+                          , TokLit(..)
+                          ) where
 
 import Prelude hiding (lookup)
 

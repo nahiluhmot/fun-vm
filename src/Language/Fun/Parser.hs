@@ -4,21 +4,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Rank2Types #-}
 
-module Language.VirtualMachine.Parser ( ParseInput
-                                      , ParseStream
-                                      , ParseTopLevel
-                                      , ParseImport
-                                      , ParseDef
-                                      , ParseStmt
-                                      , ParseStmtF(..)
-                                      , ParseExpr
-                                      , ParseExprF(..)
-                                      , ParseLit
-                                      , ParseLitF
-                                      , ParseFunction
-                                      , ParseMap(..)
-                                      , runParser
-                                      ) where
+module Language.Fun.Parser ( ParseInput
+                           , ParseStream
+                           , ParseTopLevel
+                           , ParseImport
+                           , ParseDef
+                           , ParseStmt
+                           , ParseStmtF(..)
+                           , ParseExpr
+                           , ParseExprF(..)
+                           , ParseLit
+                           , ParseLitF
+                           , ParseFunction
+                           , ParseMap(..)
+                           , runParser
+                           ) where
 
 import Data.List (intercalate)
 import Data.Functor (($>))
@@ -30,10 +30,10 @@ import Text.Parsec.Combinator
 import Text.Parsec.Prim hiding (runParser)
 import qualified Text.Parsec.Prim as P
 
-import Language.VirtualMachine.Data.AST (TopLevel(..), Stmt(..), Expr(..))
-import Language.VirtualMachine.Data.Fix (Fix(..), cata)
-import Language.VirtualMachine.Data.Value (Value(..))
-import Language.VirtualMachine.Lexer (LexToken, Tok(..), TokLit(..), TokGroupOp(..), TokBinOp(..), TokSpecialOp(..))
+import Language.Fun.Data.AST (TopLevel(..), Stmt(..), Expr(..))
+import Language.Fun.Data.Fix (Fix(..), cata)
+import Language.Fun.Data.Value (Value(..))
+import Language.Fun.Lexer (LexToken, Tok(..), TokLit(..), TokGroupOp(..), TokBinOp(..), TokSpecialOp(..))
 
 type ParseInput = (SourcePos, LexToken)
 type ParseStream s = Stream s Identity ParseInput

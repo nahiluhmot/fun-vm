@@ -1,9 +1,9 @@
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE EmptyDataDeriving #-}
 
-module Language.VirtualMachine.Data.Void ( VoidF
-                                         , absurdF
-                                         )where
+module Language.Fun.Data.Void ( VoidF
+                              , absurdF
+                              ) where
 
 -- There are none of a.
 data VoidF a deriving (Eq, Show)

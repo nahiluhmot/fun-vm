@@ -1,12 +1,12 @@
 {-# LANGUAGE TypeFamilies #-}
 
-module Language.VirtualMachine.Data.SymbolTable ( SymbolTable
-                                                , empty
-                                                , size
-                                                , toSymbol
-                                                , fromSymbol
-                                                , garbageCollect
-                                                ) where
+module Language.Fun.Data.SymbolTable ( SymbolTable
+                                     , empty
+                                     , size
+                                     , toSymbol
+                                     , fromSymbol
+                                     , garbageCollect
+                                     ) where
 
 import GHC.Exts (IsList(..))
 

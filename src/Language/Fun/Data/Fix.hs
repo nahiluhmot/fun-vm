@@ -1,7 +1,7 @@
-module Language.VirtualMachine.Data.Fix ( Fix(..)
-                                        , cata
-                                        , ana
-                                        ) where
+module Language.Fun.Data.Fix ( Fix(..)
+                             , cata
+                             , ana
+                             ) where
 
 data Fix f = Fix { unFix :: f (Fix f)  }
 

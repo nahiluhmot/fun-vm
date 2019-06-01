@@ -1,7 +1,7 @@
-module Language.VirtualMachine.Data.Stack ( StackConfig(..)
-                                          , StackState(..)
-                                          , StackFrame(..)
-                                          ) where
+module Language.Fun.Data.Stack ( StackConfig(..)
+                               , StackState(..)
+                               , StackFrame(..)
+                               ) where
 
 data StackConfig int ref
   = StackConfig { stMaxDepth :: int

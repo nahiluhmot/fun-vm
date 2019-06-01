@@ -1,6 +1,6 @@
-module Language.VirtualMachine.Data.Memory ( MemoryConfig(..)
-                                           , MemoryState(..)
-                                           ) where
+module Language.Fun.Data.Memory ( MemoryConfig(..)
+                                , MemoryState(..)
+                                ) where
 
 data MemoryConfig int float
   = MemoryConfig { memNurserySize :: int
