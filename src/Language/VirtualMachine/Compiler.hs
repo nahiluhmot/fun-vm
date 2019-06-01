@@ -34,7 +34,7 @@ type CompilerM = Writer (Seq CompilerInsn)
 
 compile :: Text -> [ParseTopLevel] -> Seq CompilerInsn
 compile name topLevel =
-  execWriter $ emit1 (Module name) *> sequence_ (map compileTopLevel topLevel)
+  execWriter $ emit1 (Module name) *> mapM_ compileTopLevel topLevel
 
 compileTopLevel :: ParseTopLevel -> Compiler
 compileTopLevel =
@@ -55,6 +55,10 @@ compileStmt =
         compileIfThenElse (compileExpr cond)
                           (sequence_ andThen)
                           (sequence_ orElse)
+      compileStmt' (StmtRaise expr) = compileExpr expr *> emit1 Raise
+      compileStmt' (StmtBeginRescue stmts sym onErr) =
+        let errHandler = compileFunc [sym] (emit1 PopErrHandler *> sequence_ onErr)
+        in  errHandler *> emit1 PushErrHandler *> sequence_ stmts *> emit1 PopErrHandler
   in  cata (compileStmt' . snd . runParseStmtF)
 
 compileExpr :: ParseExpr -> Compiler
@@ -117,18 +121,23 @@ compileLit =
       go (Vector eles) =
         emit1 (Var "*vec*") *> sequence_ eles *> emit1 (Funcall (length eles))
       go (Map (ParseMap kvs)) =
-        emit1 (Var "*map*") *> sequence_ (map (\(expr, val) -> compileExpr expr *> val) kvs) *> emit1 (Funcall (2 * (length kvs)))
+        emit1 (Var "*map*") *> mapM_ (\(expr, val) -> compileExpr expr *> val) kvs *> emit1 (Funcall (2 * (length kvs)))
       go (Func (args, body)) =
-        let args' = S.fromList args
-            argInsns = fmap (Push . Sym) args'
-            lambdaInsns = [Push (Number len), Lambda (S.length args')]
-            bodyInsns = execWriter . sequence_ $ map compileStmt body
-            len = fromIntegral $ S.length bodyInsns
-        in  emit $ argInsns <> lambdaInsns <> bodyInsns |> Return
+        compileFunc args $ mapM_ compileStmt body
   in  go
 
+compileFunc :: [Text] -> Compiler -> Compiler
+compileFunc args body =
+  let args' = S.fromList args
+      argInsns = fmap (Push . Sym) args'
+      lambdaInsns = [Push (Number len), Lambda (S.length args')]
+      bodyInsns = execWriter body
+      len = fromIntegral $ S.length bodyInsns
+  in  emit $ argInsns <> lambdaInsns <> bodyInsns |> Return
+
 pushLit :: CompilerValue -> Compiler
-pushLit = emit1 . Push
+pushLit =
+  emit1 . Push
 
 emit1 :: CompilerInsn -> Compiler
 emit1 =

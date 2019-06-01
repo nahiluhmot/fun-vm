@@ -11,6 +11,9 @@ data Instruction sym int val
   | Funcall int
   | Lambda int
   | Return
+  | Raise
+  | PushErrHandler
+  | PopErrHandler
   | Def sym
   | Import sym
   | Module sym

@@ -27,3 +27,19 @@ let list = [1, 2, 3];
 };
 
 IO[:puts](inc_all(list));
+
+begin {
+  let file = IO.open("test.txt");
+} rescue fErr {
+  IO.puts("type: " + fErr.type + ", message: " + fErr.message);
+}
+
+def with_file(path, f) -> {
+  let file = IO.open(path);
+
+  f(file);
+
+  file.close();
+} rescue err {
+  IO.puts(":/ sorry i couldn't open it cause of: " + err);
+};

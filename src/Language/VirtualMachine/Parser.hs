@@ -87,6 +87,8 @@ stmt :: Parser ParseStmt
 stmt =
   let chooseStmt (TokLit (TokSym "let")) = stmtLet
       chooseStmt (TokLit (TokSym "if")) = stmtIf
+      chooseStmt (TokLit (TokSym "raise")) = stmtRaise
+      chooseStmt (TokLit (TokSym "begin")) = stmtBeginRescue
       chooseStmt _ = stmtExpr
   in  stmtWithPos $ lookAhead anyToken >>= chooseStmt . snd
 
@@ -94,6 +96,16 @@ stmtWithPos :: Parser (Stmt Text ParseExpr ParseStmt) -> Parser ParseStmt
 stmtWithPos action =
   let wrap pos a = Fix $ ParseStmtF (pos, a)
   in  wrap <$> getPosition <*> action
+
+stmtBeginRescue :: Parser (Stmt Text expr ParseStmt)
+stmtBeginRescue =
+  StmtBeginRescue <$> (symEq "begin" *> groupOp TokOpenCurly *> many stmt <* groupOp TokCloseCurly)
+                  <*> (symEq "rescue" *> rawUnreservedSymbol)
+                  <*> (groupOp TokOpenCurly *> many stmt <* groupOp TokCloseCurly)
+
+stmtRaise :: Parser (Stmt sym ParseExpr stmt)
+stmtRaise =
+  symEq "raise" *> fmap StmtRaise expr <* stmtEnd
 
 stmtIf :: Parser (Stmt sym ParseExpr ParseStmt)
 stmtIf =
@@ -227,7 +239,15 @@ litFunction =
       multipleArgs = list TokOpenParen TokCloseParen TokComma rawUnreservedSymbol
       body = stmtBody <|> exprBody
       exprBody = return <$> stmtWithPos (StmtExpr <$> expr)
-      stmtBody = between (groupOp TokOpenCurly) (groupOp TokCloseCurly) (many stmt)
+      stmtBody =
+        tryRescue <$> getPosition
+                  <*> curlyStmts
+                  <*> optionMaybe ((,) <$> (symEq "rescue" *> rawUnreservedSymbol) <*> curlyStmts)
+      tryRescue pos stmts (Just (sym, onErr)) =
+        [Fix (ParseStmtF (pos, StmtBeginRescue stmts sym onErr))]
+      tryRescue _ stmts Nothing =
+        stmts
+      curlyStmts = between (groupOp TokOpenCurly) (groupOp TokCloseCurly) (many stmt)
   in  Func <$> ((,) <$> args <*> (specialOp TokThinArrow *> body)) <?> "function"
 
 litMap :: Parser (Value sym number str func vec ParseMap ParseExpr)
@@ -347,6 +367,9 @@ reservedWords =
   , "if"
   , "let"
   , "module"
+  , "raise"
+  , "rescue"
+  , "begin"
   , "nil"
   ]
 
@@ -385,11 +408,19 @@ instance Show (Fix ParseStmtF) where
     let phi pos (StmtExpr e) = ["StmtExpr", parens (show pos), show e]
         phi pos (StmtLet s e) = ["StmtLet", parens (show pos), show s, show e]
         phi pos (StmtIf cond andThen orElse) =
-          ["StmtIf"
+          [ "StmtIf"
           , parens (show pos)
           , show cond
           , joinSpace andThen
           , joinSpace orElse
+          ]
+        phi pos (StmtRaise e) = ["StmtRaise", parens (show pos), show e]
+        phi pos (StmtBeginRescue body sym onErr) =
+          [ "StmtBeginRescue"
+          , parens (show pos)
+          , joinSpace body
+          , show sym
+          , joinSpace onErr
           ]
     in  cata (parens . joinSpace . uncurry phi . runParseStmtF)
 

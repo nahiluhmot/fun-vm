@@ -13,6 +13,8 @@ data Stmt sym expr stmt
   = StmtExpr expr
   | StmtLet sym expr
   | StmtIf expr [stmt] [stmt]
+  | StmtRaise expr
+  | StmtBeginRescue [stmt] sym [stmt]
   deriving (Eq, Show)
 
 data Expr sym op lit expr
@@ -32,6 +34,8 @@ instance Functor (Stmt sym expr) where
     let go (StmtExpr expr) = StmtExpr expr
         go (StmtLet sym expr) = StmtLet sym expr
         go (StmtIf cond andThen orElse) = StmtIf cond (map f andThen) (map f orElse)
+        go (StmtRaise expr) = StmtRaise expr
+        go (StmtBeginRescue body var onErr) = StmtBeginRescue (map f body) var (map f onErr)
     in  go
 
 instance Functor (Expr sym op lit) where
