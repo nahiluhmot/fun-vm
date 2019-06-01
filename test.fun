@@ -18,6 +18,10 @@ let inc_all = map(x -> x + 1);
 
 let list = [1, 2, 3];
 
+if List.length(list) == 3 && List.foldl((a, e) -> a + e, 0, list) == 6 {
+  IO[:puts](inc_all(list));
+}
+
 {
   big: "ol",
   "friggen" => HASH,
@@ -25,8 +29,6 @@ let list = [1, 2, 3];
   function: () -> 1,
   "json": rocks
 };
-
-IO[:puts](inc_all(list));
 
 begin {
   let file = IO.open("test.txt");
