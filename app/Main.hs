@@ -2,9 +2,10 @@ module Main where
 
 import System.IO (stdin)
 
+import Data.Text (pack)
 import Data.Text.IO (hGetContents)
 
-import Language.VirtualMachine (runLexer, runParser)
+import Language.VirtualMachine (compile, runLexer, runParser)
 
 main :: IO ()
 main = do
@@ -14,4 +15,4 @@ main = do
 
   case runLexer sourceName text >>= runParser sourceName of
     Left err -> print err
-    Right stmts -> mapM_ print stmts
+    Right stmts -> mapM_ print $ compile (pack sourceName) stmts
