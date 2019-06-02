@@ -17,5 +17,6 @@ data Instruction sym int val
   | Def sym
   | Import sym
   | Module sym
+  | EndModule sym
   | Debugger
   deriving (Eq, Show)

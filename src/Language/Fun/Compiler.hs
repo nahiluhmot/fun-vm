@@ -34,7 +34,7 @@ type CompilerM = Writer (Seq CompilerInsn)
 
 compile :: Text -> [ParseTopLevel] -> Seq CompilerInsn
 compile name topLevel =
-  execWriter $ emit1 (Module name) *> mapM_ compileTopLevel topLevel
+  execWriter $ emit1 (Module name) *> mapM_ compileTopLevel topLevel *> emit1 (EndModule name)
 
 compileTopLevel :: ParseTopLevel -> Compiler
 compileTopLevel =
