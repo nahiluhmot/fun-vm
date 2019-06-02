@@ -63,7 +63,7 @@ compileStmt =
 
 compileExpr :: ParseExpr -> Compiler
 compileExpr =
-  let compileExpr' :: (Expr Text TokBinOp (ParseLitF Compiler) Compiler) -> Compiler
+  let compileExpr' :: Expr Text TokBinOp (ParseLitF Compiler) Compiler -> Compiler
       compileExpr' (ExprLit lit) =
         compileLit lit
       compileExpr' (ExprVar sym) =
@@ -131,7 +131,7 @@ compileFunc args body =
   let args' = S.fromList args
       argInsns = fmap (Push . Sym) args'
       lambdaInsns = [Push (Number len), Lambda (S.length args')]
-      bodyInsns = execWriter body
+      bodyInsns = fmap Let (S.reverse args') <> execWriter body
       len = fromIntegral $ S.length bodyInsns
   in  emit $ argInsns <> lambdaInsns <> bodyInsns |> Return
 
