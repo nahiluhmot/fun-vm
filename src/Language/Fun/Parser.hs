@@ -30,7 +30,7 @@ import Text.Parsec.Combinator
 import Text.Parsec.Prim hiding (runParser)
 import qualified Text.Parsec.Prim as P
 
-import Language.Fun.Data.AST (TopLevel(..), Stmt(..), Expr(..))
+import Language.Fun.AST (TopLevel(..), Stmt(..), Expr(..))
 import Language.Fun.Data.Value (Value(..))
 import Language.Fun.Fix (Fix(..), cata)
 import Language.Fun.Lexer (LexToken, Tok(..), TokLit(..), TokGroupOp(..), TokBinOp(..), TokSpecialOp(..))

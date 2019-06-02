@@ -18,7 +18,7 @@ import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as S
 import Data.Text (Text)
 
-import Language.Fun.Data.AST (TopLevel(..), Stmt(..), Expr(..))
+import Language.Fun.AST (TopLevel(..), Stmt(..), Expr(..))
 import Language.Fun.Data.Value (Value(..))
 import Language.Fun.Data.Instruction (Instruction(..))
 import Language.Fun.Fix (cata)

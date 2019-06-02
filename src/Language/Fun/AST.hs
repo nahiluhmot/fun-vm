@@ -1,7 +1,7 @@
-module Language.Fun.Data.AST ( TopLevel(..)
-                             , Stmt(..)
-                             , Expr(..)
-                             ) where
+module Language.Fun.AST ( TopLevel(..)
+                        , Stmt(..)
+                        , Expr(..)
+                        ) where
 
 data TopLevel imp def stmt
   = TopLevelImport imp
