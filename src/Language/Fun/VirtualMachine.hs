@@ -12,7 +12,7 @@ import qualified Data.Text as T
 
 import Language.Fun.Compiler (CompilerInsn, CompilerValue)
 import Language.Fun.Data.Instruction (Instruction(..))
-import Language.Fun.Data.Value (Value(..))
+import Language.Fun.Value (Value(..))
 import Language.Fun.Index (Index)
 import qualified Language.Fun.Index as IX
 

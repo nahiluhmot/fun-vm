@@ -1,6 +1,6 @@
-module Language.Fun.Data.Value ( Value(..)
-                               , Function(..)
-                               ) where
+module Language.Fun.Value ( Value(..)
+                          , Function(..)
+                          ) where
 
 data Value sym float str func vec intMap ref
   = Nil
