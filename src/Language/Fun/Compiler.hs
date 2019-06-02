@@ -39,7 +39,7 @@ compile name topLevel =
 compileTopLevel :: ParseTopLevel -> Compiler
 compileTopLevel =
   let compileTopLevel' (TopLevelImport (_, sym, file)) =
-        pushLit (Str file) *> emit1 (Import sym)
+        emit [Import file, Let sym]
       compileTopLevel' (TopLevelDef (_, sym, expr)) =
         compileExpr expr *> emit1 (Def sym)
       compileTopLevel' (TopLevelStmt stmt) =
