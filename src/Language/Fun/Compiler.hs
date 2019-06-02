@@ -19,8 +19,8 @@ import qualified Data.Sequence as S
 import Data.Text (Text)
 
 import Language.Fun.AST (TopLevel(..), Stmt(..), Expr(..))
-import Language.Fun.Data.Instruction (Instruction(..))
 import Language.Fun.Fix (cata)
+import Language.Fun.Instruction (Instruction(..))
 import Language.Fun.Lexer (TokBinOp(..))
 import Language.Fun.Parser
 import Language.Fun.Value (Value(..))

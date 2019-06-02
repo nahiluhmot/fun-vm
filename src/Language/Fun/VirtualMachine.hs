@@ -11,10 +11,10 @@ import Data.Text (Text)
 import qualified Data.Text as T
 
 import Language.Fun.Compiler (CompilerInsn, CompilerValue)
-import Language.Fun.Data.Instruction (Instruction(..))
-import Language.Fun.Value (Value(..))
+import Language.Fun.Instruction (Instruction(..))
 import Language.Fun.Index (Index)
 import qualified Language.Fun.Index as IX
+import Language.Fun.Value (Value(..))
 
 type VMInstruction = Instruction Int Int Int
 type VMValue = Value Int Rational Text (VMFun VMNativeFun VMFunPtr) Seq IntMap VMRef

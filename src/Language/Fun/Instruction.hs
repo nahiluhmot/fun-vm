@@ -1,5 +1,5 @@
-module Language.Fun.Data.Instruction ( Instruction(..)
-                                     ) where
+module Language.Fun.Instruction ( Instruction(..)
+                                ) where
 
 data Instruction sym int val
   = Push val
