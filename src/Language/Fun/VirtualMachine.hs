@@ -17,11 +17,12 @@ import qualified Language.Fun.Index as IX
 import Language.Fun.Value (Value(..))
 
 type VMInstruction = Instruction Int Int Int
-type VMValue = Value Int Rational Text (VMFun VMNativeFun VMFunPtr) Seq IntMap VMRef
+type VMValue = Value Int Rational Text (Either VMNativeFun VMFunPtr) Seq IntMap VMRef
 
-data VMFun native ptr
-  = Native native
-  | FunPtr ptr
+type VMFun = Either VMNativeFun VMFunPtr
+
+data VMErr
+  = VMRuntimeError VMValue
   deriving (Eq, Show)
 
 data VMNativeFun
