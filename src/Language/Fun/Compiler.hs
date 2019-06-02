@@ -18,11 +18,11 @@ import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as S
 import Data.Text (Text)
 
-import Language.Fun.Data.Fix (cata)
 import Language.Fun.Data.AST (TopLevel(..), Stmt(..), Expr(..))
 import Language.Fun.Data.Value (Value(..))
 import Language.Fun.Data.Instruction (Instruction(..))
 import Language.Fun.Data.Void (VoidF)
+import Language.Fun.Fix (cata)
 import Language.Fun.Lexer (TokBinOp(..))
 import Language.Fun.Parser
 

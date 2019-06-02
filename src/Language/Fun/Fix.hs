@@ -1,7 +1,7 @@
-module Language.Fun.Data.Fix ( Fix(..)
-                             , cata
-                             , ana
-                             ) where
+module Language.Fun.Fix ( Fix(..)
+                        , cata
+                        , ana
+                        ) where
 
 data Fix f = Fix { unFix :: f (Fix f)  }
 
