@@ -1,8 +1,12 @@
 module Language.Fun.VirtualMachine (
-                                   )where
+                                   ) where
 
 import Data.Word (Word32)
+import System.IO (FilePath)
 
+import Control.Monad.Except (ExceptT, runExceptT)
+import Control.Monad.Reader (ReaderT, runReaderT)
+import Control.Monad.State (StateT, runStateT)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import Data.Sequence (Seq)
@@ -18,8 +22,37 @@ import Language.Fun.Value (Value(..))
 
 type VMInstruction = Instruction Int Int Int
 type VMValue = Value Int Rational Text (Either VMNativeFun VMFunPtr) Seq IntMap VMRef
-
 type VMFun = Either VMNativeFun VMFunPtr
+
+type MonadVM = ExceptT VMErr (ReaderT VMConfig (StateT VMState IO))
+
+vmRun :: MonadVM a -> VMConfig -> VMState -> IO (Either VMErr a, VMState)
+vmRun vm conf state =
+  runStateT (runReaderT (runExceptT vm) conf) state
+
+vmInitialState :: VMConfig -> VMState
+vmInitialState conf =
+  VMState { modules = IM.empty
+          , wipModules = IM.empty
+
+          , instructions = S.empty
+          , programCounter = VMRef 0
+
+          , index = IX.empty
+
+          , errHandlers = []
+
+          , stack = []
+
+          , nextNurseryKey = 1
+          , nextHeapKey = succ $ nurserySize conf
+
+          , nextHeapGC = heapStartGC conf
+
+          , nursery = IM.empty
+          , heap = IM.empty
+
+          }
 
 data VMErr
   = VMRuntimeError VMValue
@@ -27,7 +60,7 @@ data VMErr
 
 data VMNativeFun
   = VMNativeFun { fName :: Text
-                , fRun :: [VMRef] -> VMRef
+                , fRun :: [VMRef] -> MonadVM VMRef
                 }
 
 data VMFunPtr
@@ -54,13 +87,13 @@ data VMState
             , instructions :: Seq VMRef
             , programCounter :: VMRef
 
-            , symbolTable :: Index Text
+            , index :: Index Text
 
             , errHandlers :: [VMFunPtr]
 
             , stack :: [VMRef]
 
-            , nextNuresryKey :: Int
+            , nextNurseryKey :: Int
             , nextHeapKey :: Int
 
             , nextHeapGC :: Int
